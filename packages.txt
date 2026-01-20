@@ -1,0 +1,5 @@
+# System dependencies for Streamlit Cloud
+# These are pre-installed on Streamlit Cloud, but listing for clarity
+
+# No additional system packages needed for this app
+# All dependencies are handled through requirements.txt
