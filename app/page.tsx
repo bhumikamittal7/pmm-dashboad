@@ -21,8 +21,9 @@ import { FetchDataResponse } from '@/types';
 
 export default function Home() {
   const [repository, setRepository] = useState('');
-  const [startDate, setStartDate] = useState<Date>(addDays(new Date(), -30));
-  const [endDate, setEndDate] = useState<Date>(new Date());
+  // Default to Jan 1 - Dec 31, 2025
+  const [startDate, setStartDate] = useState<Date>(new Date('2025-01-01'));
+  const [endDate, setEndDate] = useState<Date>(new Date('2025-12-31'));
   const [data, setData] = useState<FetchDataResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

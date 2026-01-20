@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, subMonths } from 'date-fns';
 import HelpModal from './HelpModal';
 
 interface ConfigSidebarProps {
@@ -135,6 +135,61 @@ export default function ConfigSidebar({
         <div className="mb-6">
           <h3 className="text-sm font-semibold text-gray-900 mb-4">Date Range</h3>
           
+          {/* Quick Date Range Options */}
+          <div className="mb-4">
+            <label className="block text-xs font-medium text-gray-700 mb-2">Quick Select</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const start = new Date('2025-01-01');
+                  const end = new Date('2025-12-31');
+                  setStartDate(start);
+                  setEndDate(end);
+                }}
+                className="px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left"
+              >
+                2025 (Full Year)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const end = new Date();
+                  const start = subMonths(end, 3);
+                  setStartDate(start);
+                  setEndDate(end);
+                }}
+                className="px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left"
+              >
+                Last 3 Months
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const end = new Date();
+                  const start = subMonths(end, 6);
+                  setStartDate(start);
+                  setEndDate(end);
+                }}
+                className="px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left"
+              >
+                Last 6 Months
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const end = new Date();
+                  const start = subMonths(end, 12);
+                  setStartDate(start);
+                  setEndDate(end);
+                }}
+                className="px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left"
+              >
+                Last 12 Months
+              </button>
+            </div>
+          </div>
+
           <div className="space-y-3">
             <div>
               <label htmlFor="start-date" className="block text-sm font-medium text-gray-700 mb-1">
