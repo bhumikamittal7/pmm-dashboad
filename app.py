@@ -132,27 +132,54 @@ if 'prs_data' not in st.session_state:
     st.session_state.prs_data = []
 
 
+def safe_get_secret(key: str, default: str = "") -> str:
+    """
+    Safely get a secret from Streamlit secrets, handling parsing errors gracefully.
+    
+    This function handles cases where the secrets.toml file is malformed or missing,
+    which can cause StreamlitSecretNotFoundError or TOML parsing errors.
+    
+    Args:
+        key: The secret key to retrieve
+        default: Default value if secret is not found or parsing fails
+        
+    Returns:
+        The secret value or default
+    """
+    try:
+        # Check if secrets attribute exists first (doesn't trigger parsing)
+        if not hasattr(st, 'secrets'):
+            return default
+        
+        # Try to access secrets - this may trigger parsing if file is malformed
+        try:
+            secrets = st.secrets
+            if secrets:
+                value = secrets.get(key, default)
+                return value if value else default
+        except Exception:
+            # If accessing st.secrets triggers a parsing error, return default
+            return default
+    except Exception:
+        # Catch any other errors (e.g., StreamlitSecretNotFoundError during initialization)
+        return default
+    return default
+
+
 def main():
     """Main application function."""
     # Load configuration from Streamlit secrets (for deployment) or environment variables (for local development)
 
     # Try to get secrets, but handle missing secrets gracefully
-    github_token = ""
-    repository_input = ""
-
-    try:
-        # Check if we're running on Streamlit Cloud (secrets available)
-        if hasattr(st, 'secrets') and st.secrets:
-            github_token = st.secrets.get("GITHUB_TOKEN", "")
-            repository_input = st.secrets.get("GITHUB_REPOSITORY", "")
-            if not repository_input:
-                # Construct from separate owner/repo if available
-                owner = st.secrets.get("GITHUB_OWNER", "")
-                repo = st.secrets.get("GITHUB_REPO", "")
-                repository_input = f"{owner}/{repo}" if owner and repo else ""
-    except Exception:
-        # If secrets fail for any reason, continue to fallback
-        pass
+    # Use safe_get_secret to avoid triggering parsing errors from malformed secrets.toml
+    github_token = safe_get_secret("GITHUB_TOKEN", "")
+    repository_input = safe_get_secret("GITHUB_REPOSITORY", "")
+    
+    if not repository_input:
+        # Construct from separate owner/repo if available
+        owner = safe_get_secret("GITHUB_OWNER", "")
+        repo = safe_get_secret("GITHUB_REPO", "")
+        repository_input = f"{owner}/{repo}" if owner and repo else ""
 
     # Fallback to environment variables for local development
     if not github_token:
