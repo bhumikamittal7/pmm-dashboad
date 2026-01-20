@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Issue, PullRequest, KPIs, LabelData, ContributorData, TimelineData, ThroughputData, CycleTimeData, IssueAgingData, PRIssueLinkage, PRSizeMergeTimeData, MergeTimeByUser } from '@/types';
+import { getCachedDataForRange, writeCachedData, mergeCachedData, readCachedData } from '@/app/lib/dataCache';
 
 interface GitHubIssue {
   number: number;
@@ -513,7 +514,47 @@ export async function POST(request: NextRequest) {
     const start = new Date(startDate);
     const end = new Date(endDate);
 
-    const { issues, prs } = await fetchGitHubData(token, owner, repo, start, end);
+    // Check if we have cached data that covers this range
+    const cachedData = getCachedDataForRange(start, end);
+    let issues: Issue[];
+    let prs: PullRequest[];
+
+    if (cachedData) {
+      // Use cached data
+      issues = cachedData.issues;
+      prs = cachedData.prs;
+      console.log(`Using cached data for range ${startDate} to ${endDate}`);
+    } else {
+      // Fetch from API
+      const fetched = await fetchGitHubData(token, owner, repo, start, end);
+      issues = fetched.issues;
+      prs = fetched.prs;
+
+      // Try to merge with existing cache if it exists
+      const existingCache = readCachedData();
+      if (existingCache) {
+        const merged = mergeCachedData(
+          existingCache.issues,
+          existingCache.prs,
+          issues,
+          prs
+        );
+        issues = merged.issues;
+        prs = merged.prs;
+      }
+
+      // Update cache with merged data
+      // Use the broader date range (cache range or requested range, whichever is wider)
+      const cacheStart = existingCache 
+        ? new Date(Math.min(new Date(existingCache.dateRange.start).getTime(), start.getTime()))
+        : start;
+      const cacheEnd = existingCache
+        ? new Date(Math.max(new Date(existingCache.dateRange.end).getTime(), end.getTime()))
+        : end;
+      
+      writeCachedData(issues, prs, cacheStart, cacheEnd);
+      console.log(`Fetched and cached data for range ${startDate} to ${endDate}`);
+    }
 
     const kpis = calculateKPIs(issues, prs);
     const labels = extractLabelsFrequency(issues, prs);
