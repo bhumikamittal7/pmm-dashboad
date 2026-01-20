@@ -1,10 +1,10 @@
 # GitHub Repository Analytics Dashboard
 
-A comprehensive Streamlit-based dashboard for analyzing GitHub repository activity, including issues, pull requests, contributor activity, and more.
+A comprehensive Next.js-based dashboard for analyzing GitHub repository activity, including issues, pull requests, contributor activity, and more. Deployed on Vercel with Python serverless functions.
 
-## ✨ Features
+## Features
 
-### 📊 Analytics Dashboard
+### Analytics Dashboard
 - **Throughput Analysis**: Bar chart showing PRs merged vs Issues closed over time
 - **Cycle Time Metrics**: Line graph displaying average time from PR creation to merge
 - **Contributor Leaderboard**: Horizontal bar chart ranking top contributors by activity
@@ -12,45 +12,46 @@ A comprehensive Streamlit-based dashboard for analyzing GitHub repository activi
 - **Issue Aging**: Histogram showing issues by age buckets (0-7 days, 7-30 days, 30+ days)
 - **Activity Timeline**: Line chart showing repository activity trends over time
 
-### 📈 Key Performance Indicators
+### Key Performance Indicators
 - Total/Open/Closed Issues count
 - Total/Open/Merged Pull Requests count
 - Average Issue Resolution Time
 - Average PR Merge Time
 - Real-time KPI cards with clean visual design
 
-### 🔒 Security & Authentication
+### Security & Authentication
 - **Secure Authentication**: GitHub Personal Access Token (PAT) support
 - **Environment Variables**: Local development with `.env` files
-- **Streamlit Secrets**: Secure deployment with encrypted secrets
+- **Vercel Environment Variables**: Secure deployment with encrypted secrets
 - **Token Validation**: Automatic format checking and masked display
 
-### 🎨 User Experience
+### User Experience
 - **Clean UI**: Modern light theme with professional styling
 - **Responsive Design**: Works on desktop and mobile devices
 - **Interactive Charts**: Hover tooltips and dynamic updates
 - **Progress Indicators**: Loading states and progress bars
 - **Error Handling**: Comprehensive error messages and recovery suggestions
 
-### ⚡ Performance
-- **Smart Caching**: 1-hour TTL caching for expensive operations
-- **Session Management**: Efficient data storage and reuse
+### Performance
+- **Serverless Functions**: Fast, scalable API endpoints on Vercel
+- **Client-Side Caching**: Efficient data storage and reuse
 - **Optimized Queries**: Minimized API calls with intelligent caching
 - **Background Processing**: Non-blocking data processing
 
 ## Tech Stack
 
-- **Streamlit**: Web application framework
-- **PyGithub**: GitHub API interaction
-- **Pandas**: Data processing and analysis
-- **Plotly**: Interactive charts and visualizations
+- **Next.js**: React framework for the frontend
+- **TypeScript**: Type-safe development
+- **Tailwind CSS**: Utility-first CSS framework
+- **Recharts**: React charting library
+- **TypeScript**: Type-safe development throughout
 
 ## Prerequisites
 
-- Python 3.8 or higher
+- Node.js 18+ and npm/yarn
 - GitHub Personal Access Token (PAT) with appropriate permissions
 
-### 🔑 Creating a GitHub Personal Access Token
+### Creating a GitHub Personal Access Token
 
 1. **Go to GitHub Settings:**
    - Visit: https://github.com/settings/tokens
@@ -60,16 +61,16 @@ A comprehensive Streamlit-based dashboard for analyzing GitHub repository activi
    - **Name**: `GitHub Analytics Dashboard`
    - **Expiration**: Set to "No expiration" or choose a reasonable timeframe
    - **Scopes**: Select the following permissions:
-     - ✅ `public_repo` (Access public repositories)
-     - ✅ `repo` (Full access to private repositories - only if needed)
-     - ✅ `read:org` (Read org membership - optional, for organization repos)
+     - `public_repo` (Access public repositories)
+     - `repo` (Full access to private repositories - only if needed)
+     - `read:org` (Read org membership - optional, for organization repos)
 
 3. **Generate and Save:**
    - Click "Generate token"
-   - **⚠️ Copy the token immediately** (you won't see it again!)
+   - **Copy the token immediately** (you won't see it again!)
    - Store securely - treat like a password
 
-### ⚡ API Rate Limits & Best Practices
+### API Rate Limits & Best Practices
 
 GitHub API has rate limits that affect usage:
 - **Unauthenticated**: 60 requests/hour
@@ -81,41 +82,33 @@ GitHub API has rate limits that affect usage:
 - Large date ranges may require more API calls
 - Monitor your usage in GitHub Settings → Developer settings
 
-## 🚀 Deployment Options
+## Deployment
 
-### Option 1: Streamlit Cloud (Recommended)
+### Vercel Deployment (Recommended)
 
 1. **Fork or clone this repository to your GitHub account**
 
-2. **Create a Streamlit Cloud account** at [share.streamlit.io](https://share.streamlit.io)
+2. **Create a Vercel account** at [vercel.com](https://vercel.com)
 
-3. **Deploy from Streamlit Cloud:**
-   - Click "New app" in Streamlit Cloud
-   - Connect your GitHub account
-   - Select this repository
-   - Set main file path to `app.py`
+3. **Deploy from Vercel:**
+   - Click "New Project" in Vercel
+   - Import your GitHub repository
+   - Vercel will automatically detect Next.js
    - Click "Deploy"
 
-4. **Configure Secrets in Streamlit Cloud:**
-   - Go to your deployed app
-   - Click **"Manage app"** (bottom right corner)
-   - Go to the **"Secrets"** section
-   - Add the following secrets (one per line):
-   ```
-   GITHUB_TOKEN = "your_github_personal_access_token_here"
-   GITHUB_REPOSITORY = "owner/repository_name"
-   ```
-   Or alternatively:
-   ```
-   GITHUB_TOKEN = "your_github_personal_access_token_here"
-   GITHUB_OWNER = "repository_owner"
-   GITHUB_REPO = "repository_name"
-   ```
-   - Click **"Save"** and **redeploy** your app
+4. **Configure Environment Variables in Vercel:**
+   - Go to your project settings
+   - Navigate to **"Environment Variables"**
+   - Add the following variables:
+     - **Name**: `GITHUB_TOKEN` | **Value**: Your GitHub Personal Access Token (required)
+     - **Name**: `GITHUB_REPOSITORY` | **Value**: `owner/repo` (optional, pre-fills UI)
+     - OR use `GITHUB_OWNER` + `GITHUB_REPO` separately
+   - Click **"Save"**
+   - Redeploy your application
 
-5. **Redeploy** your app after adding secrets
+5. **Your app will be live** at `https://your-project.vercel.app`
 
-### Option 2: Local Development
+### Local Development
 
 1. **Clone the repository:**
    ```bash
@@ -123,129 +116,52 @@ GitHub API has rate limits that affect usage:
    cd pm-dashboard
    ```
 
-2. **Activate the virtual environment:**
+2. **Install dependencies:**
    ```bash
-   # On macOS/Linux:
-   source venv/bin/activate
-
-   # On Windows:
-   venv\Scripts\activate
+   npm install
    ```
 
-3. **Install dependencies:**
+3. **Create environment file:**
+   Create a `.env.local` file in the project root:
    ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Create environment file:**
-   Create a `.env` file in the project root with your GitHub credentials:
-   ```bash
-   # .env
-   GITHUB_TOKEN=your_github_personal_access_token_here
-   GITHUB_REPOSITORY=owner/repository_name
-
-   # Alternative: Use separate owner/repo variables
-   # GITHUB_OWNER=repository_owner
-   # GITHUB_REPO=repository_name
-   ```
-
-5. **Test your configuration (recommended):**
-   ```bash
-   python test_config.py
-   ```
-   This will verify your token and repository settings before running the app.
-
-6. **Run the application:**
-   ```bash
-   streamlit run app.py
-   ```
-
-6. **Open your browser** to the URL shown in the terminal (usually `http://localhost:8501`)
-
-### Option 3: Other Cloud Platforms
-
-#### Heroku Deployment
-1. Create a `Procfile`:
-   ```
-   web: streamlit run app.py --server.port $PORT --server.address 0.0.0.0
-   ```
-
-2. Set environment variables in Heroku dashboard or CLI:
-   ```bash
-   heroku config:set GITHUB_TOKEN=your_token_here
-   heroku config:set GITHUB_REPOSITORY=owner/repo
-   ```
-
-#### Docker Deployment
-A `Dockerfile` is included for containerized deployment:
-
-```dockerfile
-FROM python:3.9-slim
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
-COPY . .
-
-EXPOSE 8501
-
-CMD ["streamlit", "run", "app.py", "--server.address", "0.0.0.0"]
-```
-
-Build and run:
-```bash
-docker build -t github-analytics .
-docker run -p 8501:8501 -e GITHUB_TOKEN=your_token github-analytics
-```
-
-3. **Activate the virtual environment:**
-   - On macOS/Linux:
-     ```bash
-     source venv/bin/activate
-     ```
-   - On Windows:
-     ```bash
-     venv\Scripts\activate
-     ```
-
-4. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-5. **Create a `.env` file in the project root:**
-   ```bash
-   touch .env
-   ```
-   
-   Then add the following content to `.env`:
-   ```env
-   # GitHub Personal Access Token
+   # .env.local
    GITHUB_TOKEN=your_github_personal_access_token_here
    
-   # Repository Information (Option 1: Use GITHUB_REPOSITORY)
-   GITHUB_REPOSITORY=owner_name/repository_name
-   
-   # Repository Information (Option 2: Use separate owner and repo)
-   # GITHUB_OWNER=owner_name
-   # GITHUB_REPO=repository_name
+   # Optional: Set default repository (will be pre-filled in UI)
+   GITHUB_REPOSITORY=owner/repo
+   # OR use separate variables:
+   # GITHUB_OWNER=owner
+   # GITHUB_REPO=repo
    ```
    
-   Replace `your_github_personal_access_token_here` with your actual GitHub PAT and update the repository information.
+   **To get a GitHub token:**
+   - Visit https://github.com/settings/tokens
+   - Click "Generate new token (classic)"
+   - Select `public_repo` scope (or `repo` for private repos)
+   - Copy the token and add it to `.env.local`
+
+4. **Run the development server:**
+   ```bash
+   npm run dev
+   ```
+
+5. **Open your browser** to `http://localhost:3000`
+
+   The app will automatically reload when you make changes.
+
+**For detailed setup instructions, see [LOCAL_SETUP.md](./LOCAL_SETUP.md)**
 
 ## Usage
 
-1. **Start the Streamlit application:**
+1. **Start the development server:**
    ```bash
-   streamlit run app.py
+   npm run dev
    ```
 
-2. **The application will open in your default web browser** (usually at `http://localhost:8501`)
+2. **The application will open in your default web browser** at `http://localhost:3000`
 
-3. **The application will automatically load your GitHub token and repository from the `.env` file.**
-   - You can override these values in the sidebar if needed
+3. **Configure and fetch data:**
+   - Enter your repository in the format `owner/repo` in the sidebar
    - Select the date range (defaults to last 30 days)
    - Click "Fetch Repository Data"
 
@@ -261,12 +177,28 @@ docker run -p 8501:8501 -e GITHUB_TOKEN=your_token github-analytics
 
 ```
 pm-dashboard/
-├── app.py                 # Main Streamlit application
-├── github_api.py          # GitHub API interaction module
-├── data_processor.py      # Data processing and analysis module
-├── visualizations.py      # Chart and visualization module
-├── requirements.txt       # Python dependencies
-└── README.md             # This file
+├── app/                   # Next.js app directory
+│   ├── components/       # React components
+│   │   ├── charts/       # Chart components (Recharts)
+│   │   ├── ConfigSidebar.tsx
+│   │   ├── KPICards.tsx
+│   │   └── DataTables.tsx
+│   ├── lib/              # Utilities
+│   │   └── api.ts        # API client
+│   ├── layout.tsx        # Root layout
+│   ├── page.tsx          # Main dashboard page
+│   └── globals.css       # Global styles
+├── app/
+│   ├── api/              # Next.js API routes
+│   │   └── fetch-data/   # Main API endpoint
+│   ├── components/       # React components
+│   ├── lib/              # Utilities
+│   └── ...
+├── types/                 # TypeScript type definitions
+│   └── index.ts
+├── package.json          # Node.js dependencies
+├── vercel.json           # Vercel configuration
+└── README.md            # This file
 ```
 
 ## Module Descriptions
@@ -284,16 +216,16 @@ pm-dashboard/
 - Identifies PR-Issue linkages
 - Generates timeline data
 
-### `visualizations.py`
-- Creates interactive Plotly charts
-- Generates bar charts for labels and contributors
-- Creates timeline line charts
-
-### `app.py`
-- Main Streamlit application
-- Handles user input and authentication
+### `app/page.tsx`
+- Main Next.js dashboard page
+- Handles user input and state management
 - Displays KPIs, charts, and tables
-- Manages application state
+- Manages application state with React hooks
+
+### `app/components/charts/`
+- React components using Recharts
+- Creates interactive charts for all visualizations
+- Responsive and accessible chart components
 
 ## Metrics Explained
 
@@ -321,15 +253,16 @@ The dashboard automatically detects PR-Issue linkages by parsing PR descriptions
 
 ### Common Issues
 
-1. **StreamlitSecretNotFoundError / Secrets not configured**
-   - **For Streamlit Cloud**: Go to your app → "Manage app" → "Secrets" → Add required secrets
-   - **For Local Development**: Create a `.env` file with your credentials
-   - Ensure secret names match exactly: `GITHUB_TOKEN`, `GITHUB_REPOSITORY`
+1. **Environment Variables not configured**
+   - **For Vercel**: Go to your project → Settings → Environment Variables → Add `GITHUB_TOKEN`
+   - **For Local Development**: Create a `.env.local` file with `GITHUB_TOKEN=your_token`
+   - Ensure the variable name is exactly `GITHUB_TOKEN`
 
 2. **"Error fetching data"**
    - Verify your GitHub PAT is correct and has the right permissions
-   - Check that the repository name is in the correct format (Owner/Repo)
+   - Check that the repository name is in the correct format (owner/repo)
    - Ensure the repository exists and is accessible
+   - Check browser console and network tab for detailed error messages
 
 3. **"No data found"**
    - Verify the date range includes dates when issues/PRs were created
@@ -339,10 +272,10 @@ The dashboard automatically detects PR-Issue linkages by parsing PR descriptions
    - GitHub API has rate limits. If you hit the limit, wait a few minutes and try again
    - Consider using a PAT with higher rate limits
 
-5. **App crashes on startup**
-   - Check that all required secrets are properly set
-   - Verify the repository format is correct (owner/repo)
-   - Ensure your GitHub token is valid
+5. **Build errors**
+   - Ensure Node.js 18+ is installed
+   - Run `npm install` to install all dependencies
+   - Verify `vercel.json` is correctly configured
 
 ## License
 
