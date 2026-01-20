@@ -9,23 +9,11 @@ import {
   Legend,
 } from 'recharts';
 import { LabelData } from '@/types';
+import { LOOKER_COLORS_EXTENDED } from '@/app/lib/chartColors';
 
 interface LabelsChartProps {
   data: LabelData[];
 }
-
-const COLORS = [
-  '#6366f1',
-  '#4f46e5',
-  '#4338ca',
-  '#3730a3',
-  '#312e81',
-  '#581c87',
-  '#7c3aed',
-  '#8b5cf6',
-  '#a78bfa',
-  '#c4b5fd',
-];
 
 export default function LabelsChart({ data }: LabelsChartProps) {
   if (!data || data.length === 0) {
@@ -72,11 +60,11 @@ export default function LabelsChart({ data }: LabelsChartProps) {
             label={({ Label, percent }) => `${Label} ${(percent * 100).toFixed(0)}%`}
             outerRadius={120}
             innerRadius={60}
-            fill="#8884d8"
+            fill="#4285F4"
             dataKey="Count"
           >
             {topLabels.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              <Cell key={`cell-${index}`} fill={LOOKER_COLORS_EXTENDED[index % LOOKER_COLORS_EXTENDED.length]} />
             ))}
           </Pie>
           <Tooltip content={<CustomTooltip />} />

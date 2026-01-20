@@ -11,15 +11,16 @@ import {
   Cell,
 } from 'recharts';
 import { IssueAgingData } from '@/types';
+import { CHART_COLORS } from '@/app/lib/chartColors';
 
 interface IssueAgingChartProps {
   data: IssueAgingData[];
 }
 
 const BUCKET_COLORS: Record<string, string> = {
-  '0-7 days': '#10b981',
-  '7-30 days': '#f59e0b',
-  '30+ days': '#ef4444',
+  '0-7 days': CHART_COLORS.success,
+  '7-30 days': CHART_COLORS.warning,
+  '30+ days': CHART_COLORS.error,
 };
 
 export default function IssueAgingChart({ data }: IssueAgingChartProps) {
@@ -44,7 +45,7 @@ export default function IssueAgingChart({ data }: IssueAgingChartProps) {
             {data.map((entry, index) => (
               <Cell
                 key={`cell-${index}`}
-                fill={BUCKET_COLORS[entry.Age_Bucket] || '#6366f1'}
+                fill={BUCKET_COLORS[entry.Age_Bucket] || CHART_COLORS.primary}
               />
             ))}
           </Bar>

@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { ContributorData } from '@/types';
+import { CHART_COLORS } from '@/app/lib/chartColors';
 
 interface ContributorChartProps {
   data: ContributorData[];
@@ -47,8 +48,8 @@ export default function ContributorChart({ data }: ContributorChartProps) {
           />
           <Tooltip />
           <Legend />
-          <Bar dataKey="PRs" stackId="a" fill="#6366f1" name="Pull Requests" />
-          <Bar dataKey="Issues" stackId="a" fill="#4f46e5" name="Issues" />
+          <Bar dataKey="PRs" stackId="a" fill={CHART_COLORS.primary} name="Pull Requests" />
+          <Bar dataKey="Issues" stackId="a" fill={CHART_COLORS.secondary} name="Issues" />
         </BarChart>
       </ResponsiveContainer>
     </div>

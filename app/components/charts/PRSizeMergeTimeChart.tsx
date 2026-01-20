@@ -12,12 +12,11 @@ import {
   Cell,
 } from 'recharts';
 import { PRSizeMergeTimeData } from '@/types';
+import { LOOKER_COLORS } from '@/app/lib/chartColors';
 
 interface PRSizeMergeTimeChartProps {
   data: PRSizeMergeTimeData[];
 }
-
-const COLORS = ['#6366f1', '#4f46e5', '#4338ca', '#3730a3'];
 
 export default function PRSizeMergeTimeChart({ data }: PRSizeMergeTimeChartProps) {
   const [useLogScale, setUseLogScale] = useState(true);
@@ -187,11 +186,11 @@ export default function PRSizeMergeTimeChart({ data }: PRSizeMergeTimeChartProps
             tickFormatter={(value) => `${value.toFixed(0)}d`}
           />
           <Tooltip content={<CustomTooltip />} />
-          <Scatter name="PRs" dataKey="Merge_Time_Days" fill="#6366f1">
+          <Scatter name="PRs" dataKey="Merge_Time_Days" fill={LOOKER_COLORS[0]}>
             {clusteredData.map((entry, index) => (
               <Cell
                 key={`cell-${index}`}
-                fill={COLORS[index % COLORS.length]}
+                fill={LOOKER_COLORS[index % LOOKER_COLORS.length]}
               />
             ))}
           </Scatter>

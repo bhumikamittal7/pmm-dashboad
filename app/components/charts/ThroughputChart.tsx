@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { ThroughputData } from '@/types';
+import { CHART_COLORS } from '@/app/lib/chartColors';
 
 interface ThroughputChartProps {
   data: ThroughputData[];
@@ -43,8 +44,8 @@ export default function ThroughputChart({ data }: ThroughputChartProps) {
           <YAxis tick={{ fontSize: 12 }} />
           <Tooltip />
           <Legend />
-          <Bar dataKey="Merged_PRs" fill="#6366f1" name="Merged PRs" />
-          <Bar dataKey="Closed_Issues" fill="#4f46e5" name="Closed Issues" />
+          <Bar dataKey="Merged_PRs" fill={CHART_COLORS.primary} name="Merged PRs" />
+          <Bar dataKey="Closed_Issues" fill={CHART_COLORS.secondary} name="Closed Issues" />
         </BarChart>
       </ResponsiveContainer>
     </div>

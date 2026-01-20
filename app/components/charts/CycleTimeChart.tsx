@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { CycleTimeData } from '@/types';
+import { CHART_COLORS } from '@/app/lib/chartColors';
 
 interface CycleTimeChartProps {
   data: CycleTimeData[];
@@ -42,9 +43,9 @@ export default function CycleTimeChart({ data }: CycleTimeChartProps) {
           <Line
             type="monotone"
             dataKey="Avg_Cycle_Time_Days"
-            stroke="#6366f1"
+            stroke={CHART_COLORS.primary}
             strokeWidth={3}
-            dot={{ fill: '#6366f1', r: 4 }}
+            dot={{ fill: CHART_COLORS.primary, r: 4 }}
             name="Avg Cycle Time"
           />
         </LineChart>

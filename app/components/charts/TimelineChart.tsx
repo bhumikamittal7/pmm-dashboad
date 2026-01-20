@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import { TimelineData } from '@/types';
 import { format, parseISO } from 'date-fns';
+import { CHART_COLORS } from '@/app/lib/chartColors';
 
 interface TimelineChartProps {
   data: TimelineData[];
@@ -51,26 +52,26 @@ export default function TimelineChart({ data }: TimelineChartProps) {
           <Line
             type="monotone"
             dataKey="Issues"
-            stroke="#4f46e5"
+            stroke={CHART_COLORS.secondary}
             strokeWidth={2.5}
-            dot={{ fill: '#4f46e5', r: 3 }}
+            dot={{ fill: CHART_COLORS.secondary, r: 3 }}
             name="Issues"
           />
           <Line
             type="monotone"
             dataKey="PRs"
-            stroke="#6366f1"
+            stroke={CHART_COLORS.primary}
             strokeWidth={2.5}
-            dot={{ fill: '#6366f1', r: 3 }}
+            dot={{ fill: CHART_COLORS.primary, r: 3 }}
             name="Pull Requests"
           />
           <Line
             type="monotone"
             dataKey="Total"
-            stroke="#818cf8"
+            stroke={CHART_COLORS.tertiary}
             strokeWidth={2.5}
             strokeDasharray="5 5"
-            dot={{ fill: '#818cf8', r: 3 }}
+            dot={{ fill: CHART_COLORS.tertiary, r: 3 }}
             name="Total Activity"
           />
         </LineChart>

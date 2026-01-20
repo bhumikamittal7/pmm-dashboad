@@ -8,6 +8,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { MergeTimeByUser } from '@/types';
+import { CHART_COLORS } from '@/app/lib/chartColors';
 
 interface AuthorMergeTimeChartProps {
   data: MergeTimeByUser[];
@@ -57,7 +58,7 @@ export default function AuthorMergeTimeChart({ data }: AuthorMergeTimeChartProps
           />
           <Bar
             dataKey="avg_merge_days"
-            fill="#6366f1"
+            fill={CHART_COLORS.primary}
             name="Avg Merge Time (days)"
           />
         </BarChart>
