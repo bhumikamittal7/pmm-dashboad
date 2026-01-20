@@ -8,8 +8,11 @@ Run this before deploying to verify your setup.
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Load environment variables (ignore if .env doesn't exist)
+try:
+    load_dotenv()
+except Exception:
+    pass
 
 def test_configuration():
     """Test the configuration setup."""
