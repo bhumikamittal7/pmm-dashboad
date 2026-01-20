@@ -21,11 +21,6 @@ caching = true
 # called. If true, will only open a new tab the first time Streamlit is called.
 showSidebarNavigation = true
 
-# Controls whether uncaught app exceptions are displayed in the browser. By
-# default, this is set to True and Streamlit displays app exceptions and
-# associated tracebacks in the browser.
-showErrorDetails = true
-
 [server]
 
 # List of folders that should not be watched for changes. This impacts both
