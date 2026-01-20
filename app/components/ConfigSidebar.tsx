@@ -216,17 +216,6 @@ export default function ConfigSidebar({
             )}
           </ol>
         </div>
-
-        <div className="mt-4 p-4 bg-gray-100 border border-gray-200 rounded-lg">
-          <h4 className="text-sm font-semibold text-gray-900 mb-2">Performance</h4>
-          <p className="text-xs text-gray-700 mb-2">
-            Data is cached for 1 hour to minimize API calls and improve performance.
-          </p>
-          <h4 className="text-sm font-semibold text-gray-900 mb-2 mt-3">Security</h4>
-          <p className="text-xs text-gray-700">
-            Your GitHub token is stored securely in environment variables and never exposed to the client.
-          </p>
-        </div>
       </div>
     </aside>
     <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
