@@ -135,18 +135,30 @@ if 'prs_data' not in st.session_state:
 def main():
     """Main application function."""
     # Load configuration from Streamlit secrets (for deployment) or environment variables (for local development)
+
+    # Try to get secrets, but handle missing secrets gracefully
+    github_token = ""
+    repository_input = ""
+
     try:
-        # Try Streamlit secrets first (for deployment)
-        github_token = st.secrets["GITHUB_TOKEN"]
-        repository_input = st.secrets.get("GITHUB_REPOSITORY", "")
-        if not repository_input:
-            # Construct from separate owner/repo if available
-            owner = st.secrets.get("GITHUB_OWNER", "")
-            repo = st.secrets.get("GITHUB_REPO", "")
-            repository_input = f"{owner}/{repo}" if owner and repo else ""
-    except (KeyError, AttributeError):
-        # Fallback to environment variables for local development
+        # Check if we're running on Streamlit Cloud (secrets available)
+        if hasattr(st, 'secrets') and st.secrets:
+            github_token = st.secrets.get("GITHUB_TOKEN", "")
+            repository_input = st.secrets.get("GITHUB_REPOSITORY", "")
+            if not repository_input:
+                # Construct from separate owner/repo if available
+                owner = st.secrets.get("GITHUB_OWNER", "")
+                repo = st.secrets.get("GITHUB_REPO", "")
+                repository_input = f"{owner}/{repo}" if owner and repo else ""
+    except Exception:
+        # If secrets fail for any reason, continue to fallback
+        pass
+
+    # Fallback to environment variables for local development
+    if not github_token:
         github_token = os.getenv("GITHUB_TOKEN", "")
+
+    if not repository_input:
         repository_input = os.getenv("GITHUB_REPOSITORY", "")
         if not repository_input:
             owner = os.getenv("GITHUB_OWNER", "")
@@ -164,14 +176,35 @@ def main():
         if repository_input:
             st.success(f"**Repository:** {repository_input}")
         else:
-            st.error("❌ Repository not configured. Please set GITHUB_REPOSITORY or GITHUB_OWNER/GITHUB_REPO in secrets.")
+            st.error("❌ Repository not configured.")
+            st.info("Set `GITHUB_REPOSITORY` (format: owner/repo) or `GITHUB_OWNER` + `GITHUB_REPO` in secrets.")
 
         if github_token:
             # Show token status without revealing the actual token
             masked_token = github_token[:8] + "..." + github_token[-4:] if len(github_token) > 12 else "***"
             st.success(f"✅ GitHub token configured: `{masked_token}`")
         else:
-            st.error("❌ GitHub token not configured. Please set GITHUB_TOKEN in secrets.")
+            st.error("❌ GitHub token not configured.")
+            with st.expander("🔑 How to set up secrets"):
+                st.markdown("""
+                ### For Streamlit Cloud:
+                1. Go to your app dashboard
+                2. Click **"Manage app"** (bottom right)
+                3. Go to **"Secrets"** section
+                4. Add these secrets:
+                ```
+                GITHUB_TOKEN = "your_github_personal_access_token"
+                GITHUB_REPOSITORY = "owner/repository-name"
+                ```
+
+                ### For Local Development:
+                Create a `.env` file with:
+                ```
+                GITHUB_TOKEN=your_github_token_here
+                GITHUB_REPOSITORY=owner/repository_name
+                ```
+                """)
+            return  # Stop execution if no token is configured
 
         # Security and help information
         with st.expander("🔒 Security & Configuration"):
@@ -200,6 +233,18 @@ def main():
             - **Caching**: Data is cached for 1 hour to minimize API calls
             - **Costs**: GitHub API is free for public repos, paid for private
             """)
+
+        # Show current configuration status for debugging
+        if st.checkbox("🔍 Show Configuration Status", value=True):
+            st.markdown("**Current Configuration:**")
+            config_status = []
+            config_status.append(f"✅ GitHub Token: {'Configured' if github_token else '❌ Missing'}")
+            config_status.append(f"✅ Repository: {'Configured' if repository_input else '❌ Missing'}")
+            if repository_input:
+                config_status.append(f"   Repository: `{repository_input}`")
+
+            for status in config_status:
+                st.code(status, language="text")
 
         with st.expander("❓ Troubleshooting"):
             st.markdown("""
@@ -288,15 +333,15 @@ def main():
     
     # Main content area
     if fetch_button or (st.session_state.analyzer is not None and st.session_state.issues_data):
-        # Validate configuration
+        # Validate configuration (additional check in case secrets were set after initial load)
         if not github_token:
-            st.error("❌ GitHub Personal Access Token not found. Please configure GITHUB_TOKEN in secrets.")
-            st.info("💡 For deployment, add GITHUB_TOKEN to your Streamlit Cloud secrets.")
+            st.error("❌ GitHub Personal Access Token not found.")
+            st.info("Please configure your secrets as shown in the sidebar.")
             return
 
         if not repository_input or '/' not in repository_input:
-            st.error("❌ Repository not configured. Please set GITHUB_REPOSITORY (format: owner/repo) in secrets.")
-            st.info("💡 For deployment, add GITHUB_REPOSITORY to your Streamlit Cloud secrets.")
+            st.error("❌ Repository not configured properly.")
+            st.info("Please set GITHUB_REPOSITORY (format: owner/repo) in your secrets.")
             return
 
         # Validate repository format

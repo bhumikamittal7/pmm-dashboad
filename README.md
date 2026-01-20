@@ -97,9 +97,10 @@ GitHub API has rate limits that affect usage:
    - Click "Deploy"
 
 4. **Configure Secrets in Streamlit Cloud:**
-   - Go to your app settings
-   - Navigate to "Secrets" section
-   - Add the following secrets:
+   - Go to your deployed app
+   - Click **"Manage app"** (bottom right corner)
+   - Go to the **"Secrets"** section
+   - Add the following secrets (one per line):
    ```
    GITHUB_TOKEN = "your_github_personal_access_token_here"
    GITHUB_REPOSITORY = "owner/repository_name"
@@ -110,6 +111,7 @@ GitHub API has rate limits that affect usage:
    GITHUB_OWNER = "repository_owner"
    GITHUB_REPO = "repository_name"
    ```
+   - Click **"Save"** and **redeploy** your app
 
 5. **Redeploy** your app after adding secrets
 
@@ -147,7 +149,13 @@ GitHub API has rate limits that affect usage:
    # GITHUB_REPO=repository_name
    ```
 
-5. **Run the application:**
+5. **Test your configuration (recommended):**
+   ```bash
+   python test_config.py
+   ```
+   This will verify your token and repository settings before running the app.
+
+6. **Run the application:**
    ```bash
    streamlit run app.py
    ```
@@ -313,18 +321,28 @@ The dashboard automatically detects PR-Issue linkages by parsing PR descriptions
 
 ### Common Issues
 
-1. **"Error fetching data"**
+1. **StreamlitSecretNotFoundError / Secrets not configured**
+   - **For Streamlit Cloud**: Go to your app → "Manage app" → "Secrets" → Add required secrets
+   - **For Local Development**: Create a `.env` file with your credentials
+   - Ensure secret names match exactly: `GITHUB_TOKEN`, `GITHUB_REPOSITORY`
+
+2. **"Error fetching data"**
    - Verify your GitHub PAT is correct and has the right permissions
    - Check that the repository name is in the correct format (Owner/Repo)
    - Ensure the repository exists and is accessible
 
-2. **"No data found"**
+3. **"No data found"**
    - Verify the date range includes dates when issues/PRs were created
    - Check that the repository has activity in the selected range
 
-3. **Rate Limiting**
+4. **Rate Limiting**
    - GitHub API has rate limits. If you hit the limit, wait a few minutes and try again
    - Consider using a PAT with higher rate limits
+
+5. **App crashes on startup**
+   - Check that all required secrets are properly set
+   - Verify the repository format is correct (owner/repo)
+   - Ensure your GitHub token is valid
 
 ## License
 
