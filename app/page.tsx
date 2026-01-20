@@ -11,6 +11,10 @@ import ContributorChart from './components/charts/ContributorChart';
 import LabelsChart from './components/charts/LabelsChart';
 import TimelineChart from './components/charts/TimelineChart';
 import IssueAgingChart from './components/charts/IssueAgingChart';
+import PRSizeMergeTimeChart from './components/charts/PRSizeMergeTimeChart';
+import AuthorMergeTimeChart from './components/charts/AuthorMergeTimeChart';
+import ReviewerMergeTimeChart from './components/charts/ReviewerMergeTimeChart';
+import ExpandableChart from './components/ExpandableChart';
 import DataTables from './components/DataTables';
 import { fetchRepositoryData } from './lib/api';
 import { FetchDataResponse } from '@/types';
@@ -132,10 +136,14 @@ export default function Home() {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <ThroughputChart data={data.data.throughput} />
+                      <ExpandableChart title="Throughput: PRs Merged vs Issues Closed">
+                        <ThroughputChart data={data.data.throughput} />
+                      </ExpandableChart>
                     </div>
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <CycleTimeChart data={data.data.cycleTime} />
+                      <ExpandableChart title="PR Cycle Time">
+                        <CycleTimeChart data={data.data.cycleTime} />
+                      </ExpandableChart>
                     </div>
                   </div>
                 </div>
@@ -146,10 +154,14 @@ export default function Home() {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <ContributorChart data={data.data.contributors} />
+                      <ExpandableChart title="Top Contributors">
+                        <ContributorChart data={data.data.contributors} />
+                      </ExpandableChart>
                     </div>
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <LabelsChart data={data.data.labels} />
+                      <ExpandableChart title="Label Distribution">
+                        <LabelsChart data={data.data.labels} />
+                      </ExpandableChart>
                     </div>
                   </div>
                 </div>
@@ -160,10 +172,39 @@ export default function Home() {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <IssueAgingChart data={data.data.issueAging} />
+                      <ExpandableChart title="Issue Aging Distribution">
+                        <IssueAgingChart data={data.data.issueAging} />
+                      </ExpandableChart>
                     </div>
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <TimelineChart data={data.data.timeline} />
+                      <ExpandableChart title="Activity Timeline">
+                        <TimelineChart data={data.data.timeline} />
+                      </ExpandableChart>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mb-6">
+                  <h3 className="text-xl font-medium text-gray-800 mb-4">
+                    PR Analysis
+                  </h3>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <ExpandableChart title="Average PR Merge Time by Author">
+                        <AuthorMergeTimeChart data={data.data.mergeTimeByAuthor} />
+                      </ExpandableChart>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <ExpandableChart title="Average PR Merge Time by Reviewer">
+                        <ReviewerMergeTimeChart data={data.data.mergeTimeByReviewer} />
+                      </ExpandableChart>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 gap-6 mt-6">
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <ExpandableChart title="PR Size vs Merge Time">
+                        <PRSizeMergeTimeChart data={data.data.prSizeMergeTime} />
+                      </ExpandableChart>
                     </div>
                   </div>
                 </div>

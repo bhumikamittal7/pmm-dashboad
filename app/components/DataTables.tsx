@@ -12,6 +12,7 @@ interface DataTablesProps {
 
 export default function DataTables({ issues, prs, prIssueLinkage }: DataTablesProps) {
   const [activeTab, setActiveTab] = useState<'issues' | 'prs' | 'linkage'>('issues');
+  const [authorFilter, setAuthorFilter] = useState('');
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
@@ -22,9 +23,40 @@ export default function DataTables({ issues, prs, prIssueLinkage }: DataTablesPr
     }
   };
 
+  const normalizedFilter = authorFilter.trim().toLowerCase();
+
+  const filteredIssues =
+    normalizedFilter.length === 0
+      ? issues
+      : issues.filter(issue =>
+          issue.user.toLowerCase().includes(normalizedFilter)
+        );
+
+  const filteredPRs =
+    normalizedFilter.length === 0
+      ? prs
+      : prs.filter(pr =>
+          pr.user.toLowerCase().includes(normalizedFilter)
+        );
+
   return (
     <div>
       <h2 className="text-2xl font-semibold text-gray-900 mb-4">Detailed Data</h2>
+
+      {/* Author filter */}
+      <div className="mb-4 flex items-center gap-3">
+        <label htmlFor="author-filter" className="text-sm font-medium text-gray-700">
+          Filter by author:
+        </label>
+        <input
+          id="author-filter"
+          type="text"
+          value={authorFilter}
+          onChange={(e) => setAuthorFilter(e.target.value)}
+          placeholder="Enter GitHub username"
+          className="flex-1 max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+        />
+      </div>
 
       {/* Tabs */}
       <div className="border-b border-gray-200 mb-4">
@@ -37,7 +69,7 @@ export default function DataTables({ issues, prs, prIssueLinkage }: DataTablesPr
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Issues Details ({issues.length})
+            Issues Details ({filteredIssues.length})
           </button>
           <button
             onClick={() => setActiveTab('prs')}
@@ -47,7 +79,7 @@ export default function DataTables({ issues, prs, prIssueLinkage }: DataTablesPr
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Pull Requests Details ({prs.length})
+            Pull Requests Details ({filteredPRs.length})
           </button>
           <button
             onClick={() => setActiveTab('linkage')}
@@ -65,7 +97,7 @@ export default function DataTables({ issues, prs, prIssueLinkage }: DataTablesPr
       {/* Issues Table */}
       {activeTab === 'issues' && (
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          {issues.length > 0 ? (
+          {filteredIssues.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -91,7 +123,7 @@ export default function DataTables({ issues, prs, prIssueLinkage }: DataTablesPr
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {issues.map((issue) => (
+                  {filteredIssues.map((issue) => (
                     <tr key={issue.number}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {issue.number}
@@ -135,7 +167,7 @@ export default function DataTables({ issues, prs, prIssueLinkage }: DataTablesPr
       {/* PRs Table */}
       {activeTab === 'prs' && (
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          {prs.length > 0 ? (
+          {filteredPRs.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -164,7 +196,7 @@ export default function DataTables({ issues, prs, prIssueLinkage }: DataTablesPr
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {prs.map((pr) => (
+                  {filteredPRs.map((pr) => (
                     <tr key={pr.number}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {pr.number}

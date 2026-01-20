@@ -26,6 +26,10 @@ export interface PullRequest {
   body: string;
   is_pr: true;
   merged: boolean;
+  additions?: number;
+  deletions?: number;
+  changed_files?: number;
+  reviewers?: string[];
 }
 
 export interface KPIs {
@@ -80,6 +84,19 @@ export interface PRIssueLinkage {
   'Linked Issues': string;
 }
 
+export interface PRSizeMergeTimeData {
+  PR_Number: number;
+  PR_Title: string;
+  Size: number; // Total changes (additions + deletions)
+  Merge_Time_Days: number;
+}
+
+export interface MergeTimeByUser {
+  user: string;
+  count: number;
+  avg_merge_days: number;
+}
+
 export interface FetchDataRequest {
   repository: string;
   startDate: string;
@@ -99,6 +116,9 @@ export interface FetchDataResponse {
     cycleTime: CycleTimeData[];
     issueAging: IssueAgingData[];
     prIssueLinkage: PRIssueLinkage[];
+    prSizeMergeTime: PRSizeMergeTimeData[];
+    mergeTimeByAuthor: MergeTimeByUser[];
+    mergeTimeByReviewer: MergeTimeByUser[];
   };
   error?: string;
 }

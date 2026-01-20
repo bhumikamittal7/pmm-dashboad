@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
+import HelpModal from './HelpModal';
 
 interface ConfigSidebarProps {
   repository: string;
@@ -25,6 +26,7 @@ export default function ConfigSidebar({
   loading,
 }: ConfigSidebarProps) {
   const [envRepository, setEnvRepository] = useState<string | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
     async function loadConfig() {
@@ -58,9 +60,33 @@ export default function ConfigSidebar({
   const dateRangeDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 
   return (
-    <aside className="w-80 bg-gray-50 border-r border-gray-200 overflow-y-auto">
-      <div className="p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">Configuration</h2>
+    <>
+      <aside className="w-80 bg-gray-50 border-r border-gray-200 overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">Configuration</h2>
+            <button
+              onClick={() => setShowHelp(true)}
+              className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+              title="Help"
+              aria-label="Open help"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-5 h-5 text-gray-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </button>
+          </div>
 
         <div className="mb-6">
           <h3 className="text-sm font-semibold text-gray-900 mb-4">Repository Settings</h3>
@@ -203,5 +229,7 @@ export default function ConfigSidebar({
         </div>
       </div>
     </aside>
+    <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
+    </>
   );
 }

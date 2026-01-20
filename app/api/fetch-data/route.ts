@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Issue, PullRequest, KPIs, LabelData, ContributorData, TimelineData, ThroughputData, CycleTimeData, IssueAgingData, PRIssueLinkage } from '@/types';
+import { Issue, PullRequest, KPIs, LabelData, ContributorData, TimelineData, ThroughputData, CycleTimeData, IssueAgingData, PRIssueLinkage, PRSizeMergeTimeData, MergeTimeByUser } from '@/types';
 
 interface GitHubIssue {
   number: number;
@@ -18,6 +18,10 @@ interface GitHubPR extends GitHubIssue {
   merged_at: string | null;
   review_comments: number;
   merged: boolean;
+  additions?: number;
+  deletions?: number;
+  changed_files?: number;
+  requested_reviewers?: Array<{ login: string }>;
 }
 
 async function fetchGitHubData(
@@ -77,6 +81,8 @@ async function fetchGitHubData(
         
         if (prResponse.ok) {
           const prData: GitHubPR = await prResponse.json();
+          const reviewers =
+            prData.requested_reviewers?.map(r => r.login).filter(Boolean) || [];
           prs.push({
             number: prData.number,
             title: prData.title,
@@ -91,6 +97,10 @@ async function fetchGitHubData(
             body: prData.body || '',
             is_pr: true,
             merged: prData.merged,
+            additions: prData.additions || 0,
+            deletions: prData.deletions || 0,
+            changed_files: prData.changed_files || 0,
+            reviewers,
           });
         }
       } else {
@@ -155,9 +165,19 @@ function calculateKPIs(issues: Issue[], prs: PullRequest[]): KPIs {
 
 function extractLabelsFrequency(issues: Issue[], prs: PullRequest[]): LabelData[] {
   const labelCounts = new Map<string, number>();
+  const ignoredLabels = new Set([
+    'ON_STAGING',
+    'Deployed on PuzzleMe',
+    'Deployed on Subs',
+    'Deployed on Enterprise',
+  ]);
 
-  [...issues, ...prs].forEach(item => {
+  // Only use issues for label distribution
+  issues.forEach(item => {
     item.labels.forEach(label => {
+      if (ignoredLabels.has(label)) {
+        return;
+      }
       labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
     });
   });
@@ -365,6 +385,97 @@ function extractPRIssueLinkage(prs: PullRequest[]): PRIssueLinkage[] {
   return linkages;
 }
 
+function createPRSizeMergeTimeData(prs: PullRequest[]): PRSizeMergeTimeData[] {
+  const data: PRSizeMergeTimeData[] = [];
+
+  prs
+    .filter(
+      pr =>
+        pr.merged &&
+        pr.merged_at &&
+        typeof pr.additions === 'number' &&
+        typeof pr.deletions === 'number'
+    )
+    .forEach(pr => {
+      const created = new Date(pr.created_at);
+      const merged = new Date(pr.merged_at!);
+      const mergeTimeDays =
+        (merged.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
+      const size = (pr.additions || 0) + (pr.deletions || 0);
+
+      data.push({
+        PR_Number: pr.number,
+        PR_Title: pr.title,
+        Size: size,
+        Merge_Time_Days: mergeTimeDays,
+      });
+    });
+
+  return data.sort((a, b) => a.Size - b.Size);
+}
+
+function createMergeTimeByAuthor(prs: PullRequest[]): MergeTimeByUser[] {
+  const stats = new Map<string, { count: number; totalDays: number }>();
+
+  prs
+    .filter(pr => pr.merged && pr.merged_at)
+    .forEach(pr => {
+      const created = new Date(pr.created_at);
+      const merged = new Date(pr.merged_at!);
+      const mergeTimeDays =
+        (merged.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
+      const user = pr.user || 'Unknown';
+
+      const current = stats.get(user) || { count: 0, totalDays: 0 };
+      current.count += 1;
+      current.totalDays += mergeTimeDays;
+      stats.set(user, current);
+    });
+
+  return Array.from(stats.entries())
+    .map(([user, { count, totalDays }]) => ({
+      user,
+      count,
+      avg_merge_days: count > 0 ? totalDays / count : 0,
+    }))
+    .sort((a, b) => b.count - a.count);
+}
+
+function createMergeTimeByReviewer(prs: PullRequest[]): MergeTimeByUser[] {
+  const stats = new Map<string, { count: number; totalDays: number }>();
+
+  prs
+    .filter(
+      pr =>
+        pr.merged &&
+        pr.merged_at &&
+        Array.isArray(pr.reviewers) &&
+        pr.reviewers.length > 0
+    )
+    .forEach(pr => {
+      const created = new Date(pr.created_at);
+      const merged = new Date(pr.merged_at!);
+      const mergeTimeDays =
+        (merged.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
+
+      pr.reviewers!.forEach(reviewer => {
+        const name = reviewer || 'Unknown';
+        const current = stats.get(name) || { count: 0, totalDays: 0 };
+        current.count += 1;
+        current.totalDays += mergeTimeDays;
+        stats.set(name, current);
+      });
+    });
+
+  return Array.from(stats.entries())
+    .map(([user, { count, totalDays }]) => ({
+      user,
+      count,
+      avg_merge_days: count > 0 ? totalDays / count : 0,
+    }))
+    .sort((a, b) => b.count - a.count);
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { repository, startDate, endDate } = await request.json();
@@ -412,6 +523,9 @@ export async function POST(request: NextRequest) {
     const cycleTime = createCycleTimeData(prs, start, end);
     const issueAging = createIssueAgingData(issues);
     const prIssueLinkage = extractPRIssueLinkage(prs);
+    const prSizeMergeTime = createPRSizeMergeTimeData(prs);
+    const mergeTimeByAuthor = createMergeTimeByAuthor(prs);
+    const mergeTimeByReviewer = createMergeTimeByReviewer(prs);
 
     return NextResponse.json({
       success: true,
@@ -426,6 +540,9 @@ export async function POST(request: NextRequest) {
         cycleTime,
         issueAging,
         prIssueLinkage,
+        prSizeMergeTime,
+        mergeTimeByAuthor,
+        mergeTimeByReviewer,
       },
     });
   } catch (error: any) {

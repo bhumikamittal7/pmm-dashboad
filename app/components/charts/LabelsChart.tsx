@@ -39,6 +39,26 @@ export default function LabelsChart({ data }: LabelsChartProps) {
   // Limit to top 10 labels
   const topLabels = data.slice(0, 10);
 
+  // Custom tooltip to show label name and count clearly
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload as LabelData;
+      const percent = ((data.Count / topLabels.reduce((sum, item) => sum + item.Count, 0)) * 100).toFixed(1);
+      return (
+        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+          <p className="font-semibold text-gray-900 mb-1">{data.Label}</p>
+          <p className="text-sm text-gray-700">
+            <span className="font-medium">Count:</span> {data.Count.toLocaleString()} issues
+          </p>
+          <p className="text-sm text-gray-700">
+            <span className="font-medium">Percentage:</span> {percent}%
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="w-full h-96">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">Label Distribution</h3>
@@ -59,7 +79,7 @@ export default function LabelsChart({ data }: LabelsChartProps) {
               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
             ))}
           </Pie>
-          <Tooltip />
+          <Tooltip content={<CustomTooltip />} />
         </PieChart>
       </ResponsiveContainer>
     </div>
