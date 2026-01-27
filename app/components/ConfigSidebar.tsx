@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { format, subMonths } from 'date-fns';
+import { useRouter } from 'next/navigation';
 import HelpModal from './HelpModal';
 
 interface ConfigSidebarProps {
@@ -25,6 +26,7 @@ export default function ConfigSidebar({
   onFetch,
   loading,
 }: ConfigSidebarProps) {
+  const router = useRouter();
   const [envRepository, setEnvRepository] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [selectedQuickSelect, setSelectedQuickSelect] = useState<string>('');
@@ -307,6 +309,13 @@ export default function ConfigSidebar({
             title="Force refresh (bypass cache)"
           >
             Force Refresh
+          </button>
+          <button
+            onClick={() => router.push('/compare')}
+            className="w-full py-2 px-4 bg-indigo-50 text-indigo-700 text-sm font-medium rounded-lg hover:bg-indigo-100 transition-colors border border-indigo-200"
+            title="Compare KPIs across different date ranges"
+          >
+            📊 Compare KPIs
           </button>
         </div>
 
