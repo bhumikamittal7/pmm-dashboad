@@ -5,12 +5,9 @@ import { addDays, format } from 'date-fns';
 import ConfigSidebar from './components/ConfigSidebar';
 import MobileWarning from './components/MobileWarning';
 import KPICards from './components/KPICards';
-import ThroughputChart from './components/charts/ThroughputChart';
-import CycleTimeChart from './components/charts/CycleTimeChart';
 import ContributorChart from './components/charts/ContributorChart';
 import LabelsChart from './components/charts/LabelsChart';
 import TimelineChart from './components/charts/TimelineChart';
-import IssueAgingChart from './components/charts/IssueAgingChart';
 import PRSizeMergeTimeChart from './components/charts/PRSizeMergeTimeChart';
 import AuthorMergeTimeChart from './components/charts/AuthorMergeTimeChart';
 import ReviewerMergeTimeChart from './components/charts/ReviewerMergeTimeChart';
@@ -124,6 +121,12 @@ export default function Home() {
                   Showing cached data (1 hour TTL). Click "Force Refresh" to fetch fresh data.
                 </div>
               )}
+              <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Date Range</h3>
+                <p className="text-sm text-gray-700">
+                  {format(startDate, 'MMMM d, yyyy')} - {format(endDate, 'MMMM d, yyyy')}
+                </p>
+              </div>
               <KPICards kpis={data.data.kpis} />
               
               <div className="mt-8">
@@ -133,34 +136,22 @@ export default function Home() {
 
                 <div className="mb-6">
                   <h3 className="text-xl font-medium text-gray-800 mb-4">
-                    Performance Metrics
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <ExpandableChart title="Throughput: PRs Merged vs Issues Closed">
-                        <ThroughputChart data={data.data.throughput} />
-                      </ExpandableChart>
-                    </div>
-                    <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <ExpandableChart title="PR Cycle Time">
-                        <CycleTimeChart data={data.data.cycleTime} />
-                      </ExpandableChart>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mb-6">
-                  <h3 className="text-xl font-medium text-gray-800 mb-4">
                     Contribution & Organization
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <ExpandableChart title="Top Contributors">
+                      <ExpandableChart 
+                        title="Top Contributors"
+                        description="This chart shows the top contributors ranked by the number of pull requests they have created. It helps identify the most active contributors to the repository."
+                      >
                         <ContributorChart data={data.data.contributors} />
                       </ExpandableChart>
                     </div>
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <ExpandableChart title="Label Distribution">
+                      <ExpandableChart 
+                        title="Label Distribution"
+                        description="This donut chart displays the frequency of labels used across issues in the repository. It helps understand the types of work being tracked (e.g., bugs, features, technical debt)."
+                      >
                         <LabelsChart data={data.data.labels} />
                       </ExpandableChart>
                     </div>
@@ -169,16 +160,14 @@ export default function Home() {
 
                 <div className="mb-6">
                   <h3 className="text-xl font-medium text-gray-800 mb-4">
-                    Trends & Aging
+                    Trends & Activity
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 gap-6">
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <ExpandableChart title="Issue Aging Distribution">
-                        <IssueAgingChart data={data.data.issueAging} />
-                      </ExpandableChart>
-                    </div>
-                    <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <ExpandableChart title="Activity Timeline">
+                      <ExpandableChart 
+                        title="Activity Timeline"
+                        description="This timeline chart shows the number of pull requests merged to main by week. It helps visualize the repository's activity trends over time."
+                      >
                         <TimelineChart data={data.data.timeline} />
                       </ExpandableChart>
                     </div>
@@ -191,19 +180,28 @@ export default function Home() {
                   </h3>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <ExpandableChart title="Average PR Merge Time by Author">
+                      <ExpandableChart 
+                        title="Average PR Merge Time by Author"
+                        description="This chart displays the average time it takes for pull requests to be merged, grouped by author. It helps identify which authors have faster or slower merge times on average."
+                      >
                         <AuthorMergeTimeChart data={data.data.mergeTimeByAuthor} />
                       </ExpandableChart>
                     </div>
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <ExpandableChart title="Average PR Merge Time by Reviewer">
+                      <ExpandableChart 
+                        title="Average PR Merge Time by Reviewer"
+                        description="This chart shows the average merge time for pull requests reviewed by each reviewer. It helps understand review efficiency and identify potential bottlenecks in the review process."
+                      >
                         <ReviewerMergeTimeChart data={data.data.mergeTimeByReviewer} />
                       </ExpandableChart>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 gap-6 mt-6">
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <ExpandableChart title="PR Size vs Merge Time">
+                      <ExpandableChart 
+                        title="PR Size vs Merge Time"
+                        description="This scatter plot shows the relationship between pull request size (total lines changed) and merge time. It helps identify if larger PRs take longer to merge, which can inform code review practices."
+                      >
                         <PRSizeMergeTimeChart data={data.data.prSizeMergeTime} />
                       </ExpandableChart>
                     </div>
@@ -227,16 +225,16 @@ export default function Home() {
                 </h2>
                 <p className="text-gray-600 mb-8">
                   Gain deep insights into your repository's performance with comprehensive analytics
-                  on throughput, cycle time, contributions, and issue management.
+                  on contributions, issue management, and pull request activity.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                   <div className="bg-white border border-gray-200 rounded-lg p-6">
-                    <h3 className="font-semibold text-gray-900 mb-2">Throughput Analysis</h3>
-                    <p className="text-sm text-gray-600">Track PR merges vs issue closures over time</p>
+                    <h3 className="font-semibold text-gray-900 mb-2">Contributor Insights</h3>
+                    <p className="text-sm text-gray-600">Top contributor leaderboard by PRs</p>
                   </div>
                   <div className="bg-white border border-gray-200 rounded-lg p-6">
-                    <h3 className="font-semibold text-gray-900 mb-2">Cycle Time Metrics</h3>
-                    <p className="text-sm text-gray-600">Monitor PR merge time efficiency</p>
+                    <h3 className="font-semibold text-gray-900 mb-2">Activity Timeline</h3>
+                    <p className="text-sm text-gray-600">Track PR merges over time</p>
                   </div>
                   <div className="bg-white border border-gray-200 rounded-lg p-6">
                     <h3 className="font-semibold text-gray-900 mb-2">Contributor Insights</h3>

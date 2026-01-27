@@ -23,8 +23,8 @@ export default function AuthorMergeTimeChart({ data }: AuthorMergeTimeChartProps
     );
   }
 
-  // Show top 15 authors by PR count
-  const topAuthors = [...data].sort((a, b) => b.count - a.count).slice(0, 15);
+  // Show all authors, sorted by PR count
+  const allAuthors = [...data].sort((a, b) => b.count - a.count);
 
   return (
     <div className="w-full h-96">
@@ -33,7 +33,7 @@ export default function AuthorMergeTimeChart({ data }: AuthorMergeTimeChartProps
       </h3>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
-          data={topAuthors}
+          data={allAuthors}
           margin={{ top: 20, right: 30, left: 40, bottom: 40 }}
         >
           <CartesianGrid strokeDasharray="3 3" />
@@ -64,7 +64,7 @@ export default function AuthorMergeTimeChart({ data }: AuthorMergeTimeChartProps
         </BarChart>
       </ResponsiveContainer>
       <p className="text-xs text-gray-500 mt-2 text-center">
-        Top authors by merged PR count. Hover to see details.
+        All authors sorted by merged PR count. Hover to see details.
       </p>
     </div>
   );

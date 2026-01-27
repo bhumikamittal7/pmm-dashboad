@@ -9,9 +9,6 @@ export default function KPICards({ kpis }: KPICardsProps) {
     { label: 'Total Issues', value: kpis.total_issues, color: '#6366f1' },
     { label: 'Open Issues', value: kpis.open_issues, color: '#4f46e5' },
     { label: 'Closed Issues', value: kpis.closed_issues, color: '#3730a3' },
-    { label: 'Total PRs', value: kpis.total_prs, color: '#6366f1' },
-    { label: 'Open PRs', value: kpis.open_prs, color: '#4f46e5' },
-    { label: 'Merged PRs', value: kpis.merged_prs, color: '#3730a3' },
     {
       label: 'Avg Issue Resolution',
       value: kpis.avg_issue_resolution_days > 0
@@ -19,6 +16,9 @@ export default function KPICards({ kpis }: KPICardsProps) {
         : 'N/A',
       color: '#10b981',
     },
+    { label: 'Total PRs', value: kpis.total_prs, color: '#6366f1' },
+    { label: 'Open PRs', value: kpis.open_prs, color: '#4f46e5' },
+    { label: 'Merged PRs', value: kpis.merged_prs, color: '#3730a3' },
     {
       label: 'Avg PR Merge Time',
       value: kpis.avg_pr_merge_days > 0

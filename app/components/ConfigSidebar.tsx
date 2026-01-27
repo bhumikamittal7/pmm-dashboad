@@ -27,6 +27,7 @@ export default function ConfigSidebar({
 }: ConfigSidebarProps) {
   const [envRepository, setEnvRepository] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [selectedQuickSelect, setSelectedQuickSelect] = useState<string>('');
 
   useEffect(() => {
     async function loadConfig() {
@@ -58,6 +59,49 @@ export default function ConfigSidebar({
 
   const isDateRangeValid = startDate <= endDate;
   const dateRangeDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+  // Determine which quick select option matches the current date range
+  const getMatchingQuickSelect = (): string => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const lastYear = currentYear - 1;
+    
+    const startStr = format(startDate, 'yyyy-MM-dd');
+    const endStr = format(endDate, 'yyyy-MM-dd');
+    
+    // Check for exact matches with quick select options
+    if (startStr === format(new Date(lastYear, 9, 1), 'yyyy-MM-dd') && 
+        endStr === format(new Date(lastYear, 11, 31), 'yyyy-MM-dd')) {
+      return 'last-3-months-last-year';
+    }
+    if (startStr === format(new Date(lastYear, 6, 1), 'yyyy-MM-dd') && 
+        endStr === format(new Date(lastYear, 11, 31), 'yyyy-MM-dd')) {
+      return 'last-6-months-last-year';
+    }
+    if (startStr === '2025-01-01' && endStr === '2025-12-31') {
+      return '2025';
+    }
+    if (startStr === '2024-01-01' && endStr === '2024-12-31') {
+      return '2024';
+    }
+    if (startStr === '2023-01-01' && endStr === '2023-12-31') {
+      return '2023';
+    }
+    if (startStr === '2022-01-01' && endStr === '2022-12-31') {
+      return '2022';
+    }
+    if (startStr === '2021-01-01' && endStr === '2021-12-31') {
+      return '2021';
+    }
+    
+    return '';
+  };
+
+  // Update selected quick select when dates change
+  useEffect(() => {
+    setSelectedQuickSelect(getMatchingQuickSelect());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate]);
 
   return (
     <>
@@ -138,56 +182,69 @@ export default function ConfigSidebar({
           {/* Quick Date Range Options */}
           <div className="mb-4">
             <label className="block text-xs font-medium text-gray-700 mb-2">Quick Select</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  const start = new Date('2025-01-01');
-                  const end = new Date('2025-12-31');
-                  setStartDate(start);
-                  setEndDate(end);
-                }}
-                className="px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left"
-              >
-                2025 (Full Year)
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const end = new Date();
-                  const start = subMonths(end, 3);
-                  setStartDate(start);
-                  setEndDate(end);
-                }}
-                className="px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left"
-              >
-                Last 3 Months
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const end = new Date();
-                  const start = subMonths(end, 6);
-                  setStartDate(start);
-                  setEndDate(end);
-                }}
-                className="px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left"
-              >
-                Last 6 Months
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const end = new Date();
-                  const start = subMonths(end, 12);
-                  setStartDate(start);
-                  setEndDate(end);
-                }}
-                className="px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-left"
-              >
-                Last 12 Months
-              </button>
-            </div>
+            <select
+              value={selectedQuickSelect}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === '') {
+                  setSelectedQuickSelect('');
+                  return;
+                }
+                
+                const now = new Date();
+                const currentYear = now.getFullYear();
+                const lastYear = currentYear - 1;
+                
+                let start: Date;
+                let end: Date;
+                
+                switch (value) {
+                  case 'last-3-months-last-year':
+                    start = new Date(lastYear, 9, 1); // Oct 1
+                    end = new Date(lastYear, 11, 31); // Dec 31
+                    break;
+                  case 'last-6-months-last-year':
+                    start = new Date(lastYear, 6, 1); // Jul 1
+                    end = new Date(lastYear, 11, 31); // Dec 31
+                    break;
+                  case '2025':
+                    start = new Date('2025-01-01');
+                    end = new Date('2025-12-31');
+                    break;
+                  case '2024':
+                    start = new Date('2024-01-01');
+                    end = new Date('2024-12-31');
+                    break;
+                  case '2023':
+                    start = new Date('2023-01-01');
+                    end = new Date('2023-12-31');
+                    break;
+                  case '2022':
+                    start = new Date('2022-01-01');
+                    end = new Date('2022-12-31');
+                    break;
+                  case '2021':
+                    start = new Date('2021-01-01');
+                    end = new Date('2021-12-31');
+                    break;
+                  default:
+                    return;
+                }
+                setStartDate(start);
+                setEndDate(end);
+                setSelectedQuickSelect(value);
+              }}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+            >
+              <option value="">Select a time period...</option>
+              <option value="last-3-months-last-year">Last 3 months of last year</option>
+              <option value="last-6-months-last-year">Last 6 months of last year</option>
+              <option value="2025">2025</option>
+              <option value="2024">2024</option>
+              <option value="2023">2023</option>
+              <option value="2022">2022</option>
+              <option value="2021">2021</option>
+            </select>
           </div>
 
           <div className="space-y-3">

@@ -27,11 +27,35 @@ export default function TimelineChart({ data }: TimelineChartProps) {
     );
   }
 
-  // Format dates for display
-  const formattedData = data.map((item) => ({
-    ...item,
-    Date: format(parseISO(item.Date), 'MMM dd'),
-  }));
+  // Format dates for display - timeline now always uses weeks
+  const formattedData = data.map((item) => {
+    let displayDate: string;
+    const parts = item.Date.split('-');
+    
+    if (parts.length === 3) {
+      // It's a week start date string like "2025-01-01"
+      try {
+        const weekStart = parseISO(item.Date);
+        displayDate = format(weekStart, 'MMM dd, yyyy');
+      } catch {
+        displayDate = item.Date;
+      }
+    } else if (parts.length === 2) {
+      // It's a month string like "2025-01" (shouldn't happen now, but keep for compatibility)
+      try {
+        displayDate = format(new Date(`${item.Date}-01`), 'MMM yyyy');
+      } catch {
+        displayDate = item.Date;
+      }
+    } else {
+      displayDate = item.Date;
+    }
+    
+    return {
+      ...item,
+      Date: displayDate,
+    };
+  });
 
   return (
     <div className="w-full h-96">
@@ -51,28 +75,11 @@ export default function TimelineChart({ data }: TimelineChartProps) {
           <Legend />
           <Line
             type="monotone"
-            dataKey="Issues"
-            stroke={CHART_COLORS.secondary}
-            strokeWidth={2.5}
-            dot={{ fill: CHART_COLORS.secondary, r: 3 }}
-            name="Issues"
-          />
-          <Line
-            type="monotone"
             dataKey="PRs"
             stroke={CHART_COLORS.primary}
             strokeWidth={2.5}
             dot={{ fill: CHART_COLORS.primary, r: 3 }}
-            name="Pull Requests"
-          />
-          <Line
-            type="monotone"
-            dataKey="Total"
-            stroke={CHART_COLORS.tertiary}
-            strokeWidth={2.5}
-            strokeDasharray="5 5"
-            dot={{ fill: CHART_COLORS.tertiary, r: 3 }}
-            name="Total Activity"
+            name="Merged PRs"
           />
         </LineChart>
       </ResponsiveContainer>

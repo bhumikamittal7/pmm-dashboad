@@ -74,8 +74,10 @@ export interface CycleTimeData {
 }
 
 export interface IssueAgingData {
-  Age_Bucket: string;
-  Count: number;
+  Issue_Number: number;
+  Issue_Title: string;
+  PR_Merge_Date: string;
+  Age_Days: number;
 }
 
 export interface PRIssueLinkage {
@@ -112,8 +114,6 @@ export interface FetchDataResponse {
     labels: LabelData[];
     contributors: ContributorData[];
     timeline: TimelineData[];
-    throughput: ThroughputData[];
-    cycleTime: CycleTimeData[];
     issueAging: IssueAgingData[];
     prIssueLinkage: PRIssueLinkage[];
     prSizeMergeTime: PRSizeMergeTimeData[];

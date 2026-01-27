@@ -23,8 +23,8 @@ export default function ReviewerMergeTimeChart({ data }: ReviewerMergeTimeChartP
     );
   }
 
-  // Show top 15 reviewers by PR count
-  const topReviewers = [...data].sort((a, b) => b.count - a.count).slice(0, 15);
+  // Show all reviewers, sorted by PR count
+  const allReviewers = [...data].sort((a, b) => b.count - a.count);
 
   return (
     <div className="w-full h-96">
@@ -33,7 +33,7 @@ export default function ReviewerMergeTimeChart({ data }: ReviewerMergeTimeChartP
       </h3>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
-          data={topReviewers}
+          data={allReviewers}
           margin={{ top: 20, right: 30, left: 40, bottom: 40 }}
         >
           <CartesianGrid strokeDasharray="3 3" />
@@ -64,7 +64,7 @@ export default function ReviewerMergeTimeChart({ data }: ReviewerMergeTimeChartP
         </BarChart>
       </ResponsiveContainer>
       <p className="text-xs text-gray-500 mt-2 text-center">
-        Top reviewers by merged PRs they reviewed. Hover to see details.
+        All reviewers sorted by merged PRs they reviewed. Hover to see details.
       </p>
     </div>
   );

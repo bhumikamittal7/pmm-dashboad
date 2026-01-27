@@ -5,35 +5,89 @@ import { useState } from 'react';
 interface ExpandableChartProps {
   title: string;
   children: React.ReactNode;
+  description?: string;
 }
 
-export default function ExpandableChart({ title, children }: ExpandableChartProps) {
+export default function ExpandableChart({ title, children, description }: ExpandableChartProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
 
   return (
     <>
       <div className="relative">
-        <button
-          onClick={() => setIsExpanded(true)}
-          className="absolute top-2 right-2 z-10 p-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors"
-          title="Expand chart"
-          aria-label="Expand chart"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-4 h-4 text-gray-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+        <div className="absolute top-2 right-2 z-10 flex gap-2">
+          {description && (
+            <>
+              <button
+                onClick={() => setShowInfo(!showInfo)}
+                className="p-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors"
+                title="Show chart information"
+                aria-label="Show chart information"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="w-4 h-4 text-gray-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </button>
+              {showInfo && (
+                <div className="absolute top-12 right-0 z-20 w-64 p-3 bg-white border border-gray-300 rounded-lg shadow-lg text-sm text-gray-700">
+                  {description}
+                  <button
+                    onClick={() => setShowInfo(false)}
+                    className="absolute top-1 right-1 p-1 hover:bg-gray-100 rounded"
+                    aria-label="Close info"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="w-3 h-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+          <button
+            onClick={() => setIsExpanded(true)}
+            className="p-2 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors"
+            title="Expand chart"
+            aria-label="Expand chart"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-            />
-          </svg>
-        </button>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-4 h-4 text-gray-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+              />
+            </svg>
+          </button>
+        </div>
         {children}
       </div>
 

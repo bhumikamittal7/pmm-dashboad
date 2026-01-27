@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Issue, PullRequest, KPIs, LabelData, ContributorData, TimelineData, ThroughputData, CycleTimeData, IssueAgingData, PRIssueLinkage, PRSizeMergeTimeData, MergeTimeByUser } from '@/types';
+import { Issue, PullRequest, KPIs, LabelData, ContributorData, TimelineData, IssueAgingData, PRIssueLinkage, PRSizeMergeTimeData, MergeTimeByUser } from '@/types';
 import { getCachedDataForRange, writeCachedData, mergeCachedData, readCachedData } from '@/app/lib/dataCache';
 
 interface GitHubIssue {
@@ -213,67 +213,29 @@ function createContributorLeaderboard(issues: Issue[], prs: PullRequest[]): Cont
     .sort((a, b) => b.Total - a.Total);
 }
 
-function createTimelineData(issues: Issue[], prs: PullRequest[]): TimelineData[] {
-  const dateMap = new Map<string, { Issues: number; PRs: number }>();
+function createTimelineData(prs: PullRequest[], startDate: Date, endDate: Date): TimelineData[] {
+  // Always use weeks for timeline
+  const period = 'week';
+  
+  const periodMap = new Map<string, number>();
 
-  issues.forEach(issue => {
-    const date = issue.created_at.split('T')[0];
-    const data = dateMap.get(date) || { Issues: 0, PRs: 0 };
-    data.Issues++;
-    dateMap.set(date, data);
-  });
-
-  prs.forEach(pr => {
-    const date = pr.created_at.split('T')[0];
-    const data = dateMap.get(date) || { Issues: 0, PRs: 0 };
-    data.PRs++;
-    dateMap.set(date, data);
-  });
-
-  return Array.from(dateMap.entries())
-    .map(([Date, { Issues, PRs }]) => ({
-      Date,
-      Issues,
-      PRs,
-      Total: Issues + PRs,
-    }))
-    .sort((a, b) => a.Date.localeCompare(b.Date));
-}
-
-function createThroughputData(
-  issues: Issue[],
-  prs: PullRequest[],
-  startDate: Date,
-  endDate: Date
-): ThroughputData[] {
-  const daysRange = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-  const period = daysRange <= 7 ? 'day' : daysRange <= 90 ? 'week' : 'month';
-
-  const periodMap = new Map<string, { Closed_Issues: number; Merged_PRs: number }>();
-
-  issues
-    .filter(i => i.state === 'closed' && i.closed_at)
-    .forEach(issue => {
-      const date = new Date(issue.closed_at!);
-      const key = formatPeriod(date, period);
-      const data = periodMap.get(key) || { Closed_Issues: 0, Merged_PRs: 0 };
-      data.Closed_Issues++;
-      periodMap.set(key, data);
-    });
-
+  // Only count merged PRs
   prs
-    .filter(p => p.merged && p.merged_at)
+    .filter(pr => pr.merged && pr.merged_at)
     .forEach(pr => {
-      const date = new Date(pr.merged_at!);
-      const key = formatPeriod(date, period);
-      const data = periodMap.get(key) || { Closed_Issues: 0, Merged_PRs: 0 };
-      data.Merged_PRs++;
-      periodMap.set(key, data);
+      const mergeDate = new Date(pr.merged_at!);
+      const key = formatPeriod(mergeDate, period);
+      periodMap.set(key, (periodMap.get(key) || 0) + 1);
     });
 
   return Array.from(periodMap.entries())
-    .map(([Period, data]) => ({ Period, ...data }))
-    .sort((a, b) => a.Period.localeCompare(b.Period));
+    .map(([Date, count]) => ({
+      Date,
+      Issues: 0,
+      PRs: count,
+      Total: count,
+    }))
+    .sort((a, b) => a.Date.localeCompare(b.Date));
 }
 
 function formatPeriod(date: Date, period: 'day' | 'week' | 'month'): string {
@@ -288,68 +250,60 @@ function formatPeriod(date: Date, period: 'day' | 'week' | 'month'): string {
   }
 }
 
-function createCycleTimeData(
-  prs: PullRequest[],
-  startDate: Date,
-  endDate: Date
-): CycleTimeData[] {
-  const mergedPRs = prs.filter(
-    p => p.merged && p.merged_at && 
-    new Date(p.created_at) >= startDate && 
-    new Date(p.merged_at) <= endDate
-  );
-
-  if (mergedPRs.length === 0) return [];
-
-  const daysRange = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-  const period = daysRange <= 7 ? 'day' : daysRange <= 30 ? 'week' : 'month';
-
-  const periodMap = new Map<string, number[]>();
-
-  mergedPRs.forEach(pr => {
-    const created = new Date(pr.created_at);
-    const merged = new Date(pr.merged_at!);
-    const cycleTime = (merged.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
-    const key = formatPeriod(merged, period);
+function createIssueAgingData(issues: Issue[], prs: PullRequest[]): IssueAgingData[] {
+  // Create a map of issue numbers to PR merge dates
+  const issueToPRMergeDate = new Map<number, Date>();
+  
+  prs.forEach(pr => {
+    if (!pr.merged || !pr.merged_at) return;
     
-    if (!periodMap.has(key)) {
-      periodMap.set(key, []);
-    }
-    periodMap.get(key)!.push(cycleTime);
+    // Extract issue numbers from PR body
+    const patterns = [
+      /#(\d+)/g,
+      /closes?\s+#(\d+)/gi,
+      /fixes?\s+#(\d+)/gi,
+      /resolves?\s+#(\d+)/gi,
+      /related\s+to\s+#(\d+)/gi,
+    ];
+    
+    if (!pr.body) return;
+    
+    patterns.forEach(pattern => {
+      const matches = pr.body.matchAll(pattern);
+      for (const match of matches) {
+        const issueNum = parseInt(match[1]);
+        if (!isNaN(issueNum)) {
+          const mergeDate = new Date(pr.merged_at!);
+          // Keep the earliest merge date if multiple PRs reference the same issue
+          const existing = issueToPRMergeDate.get(issueNum);
+          if (!existing || mergeDate < existing) {
+            issueToPRMergeDate.set(issueNum, mergeDate);
+          }
+        }
+      }
+    });
   });
 
-  return Array.from(periodMap.entries())
-    .map(([Period, times]) => ({
-      Period,
-      Avg_Cycle_Time_Days: times.reduce((a, b) => a + b, 0) / times.length,
-    }))
-    .sort((a, b) => a.Period.localeCompare(b.Period));
-}
-
-function createIssueAgingData(issues: Issue[]): IssueAgingData[] {
-  const openIssues = issues.filter(i => i.state === 'open');
   const now = new Date();
+  const issueAgingData: IssueAgingData[] = [];
 
-  const buckets = {
-    '0-7 days': 0,
-    '7-30 days': 0,
-    '30+ days': 0,
-  };
-
-  openIssues.forEach(issue => {
-    const created = new Date(issue.created_at);
-    const ageDays = (now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
+  // Create individual issue data points
+  issues.forEach(issue => {
+    const prMergeDate = issueToPRMergeDate.get(issue.number);
+    if (!prMergeDate) return; // Skip issues without linked PRs
     
-    if (ageDays <= 7) {
-      buckets['0-7 days']++;
-    } else if (ageDays <= 30) {
-      buckets['7-30 days']++;
-    } else {
-      buckets['30+ days']++;
-    }
+    const ageDays = (now.getTime() - prMergeDate.getTime()) / (1000 * 60 * 60 * 24);
+    
+    issueAgingData.push({
+      Issue_Number: issue.number,
+      Issue_Title: issue.title,
+      PR_Merge_Date: prMergeDate.toISOString(),
+      Age_Days: Math.round(ageDays * 10) / 10, // Round to 1 decimal place
+    });
   });
 
-  return Object.entries(buckets).map(([Age_Bucket, Count]) => ({ Age_Bucket, Count }));
+  // Sort by age days (oldest first)
+  return issueAgingData.sort((a, b) => b.Age_Days - a.Age_Days);
 }
 
 function extractPRIssueLinkage(prs: PullRequest[]): PRIssueLinkage[] {
@@ -559,10 +513,8 @@ export async function POST(request: NextRequest) {
     const kpis = calculateKPIs(issues, prs);
     const labels = extractLabelsFrequency(issues, prs);
     const contributors = createContributorLeaderboard(issues, prs);
-    const timeline = createTimelineData(issues, prs);
-    const throughput = createThroughputData(issues, prs, start, end);
-    const cycleTime = createCycleTimeData(prs, start, end);
-    const issueAging = createIssueAgingData(issues);
+    const timeline = createTimelineData(prs, start, end);
+    const issueAging = createIssueAgingData(issues, prs);
     const prIssueLinkage = extractPRIssueLinkage(prs);
     const prSizeMergeTime = createPRSizeMergeTimeData(prs);
     const mergeTimeByAuthor = createMergeTimeByAuthor(prs);
@@ -577,8 +529,6 @@ export async function POST(request: NextRequest) {
         labels,
         contributors,
         timeline,
-        throughput,
-        cycleTime,
         issueAging,
         prIssueLinkage,
         prSizeMergeTime,
