@@ -298,7 +298,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const [owner, repo] = repository.split('/', 2).map((s) => (s ?? '').trim());
+    const [owner, repo] = repository.split('/', 2).map((s: string) => (s ?? '').trim());
     if (!owner || !repo) {
       return NextResponse.json(
         { success: false, error: 'Invalid repository format. Use "owner/repo"' },
