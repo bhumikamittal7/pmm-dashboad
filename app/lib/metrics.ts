@@ -287,8 +287,8 @@ export function computeContributorMetrics(
 
     // Review cycles (unique review rounds per PR)
     const reviewCycles = authorMerged.map(p => {
-      const reviews = (p.reviews || []).filter(r => !isBot(r.user));
-      const uniqueRounds = new Set(reviews.map(r => r.submitted_at.split('T')[0]));
+      const reviews = (p.reviews || []).filter(r => !isBot(r.user) && r.submitted_at);
+      const uniqueRounds = new Set(reviews.map(r => (r.submitted_at || '').split('T')[0]).filter(Boolean));
       return uniqueRounds.size;
     });
     const review_cycles_avg = reviewCycles.length > 0
@@ -495,8 +495,9 @@ export function computeReviewBreakdown(prs: PullRequest[]): ReviewBreakdownData[
   const periodMap = new Map<string, { approved: number; changes_requested: number; commented: number }>();
   prs.forEach(p => {
     (p.reviews || []).forEach(r => {
-      if (isBot(r.user) || r.user === p.user) return;
+      if (isBot(r.user) || r.user === p.user || !r.submitted_at) return;
       const d = new Date(r.submitted_at);
+      if (Number.isNaN(d.getTime())) return;
       const weekStart = new Date(d);
       weekStart.setDate(d.getDate() - d.getDay());
       const key = weekStart.toISOString().split('T')[0];

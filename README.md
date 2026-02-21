@@ -1,23 +1,24 @@
 # GitHub Repository Analytics Dashboard
 
-A comprehensive Next.js-based dashboard for analyzing GitHub repository activity, including issues, pull requests, contributor activity, and more. Deployed on Vercel with Python serverless functions.
+A Next.js dashboard for engineering leadership: analyze GitHub repository activity with 30+ metrics across pull requests, issues, contributors, and releases. Multi-page layout with executive overview, PR/issue analytics, contributor table, and KPI comparison. Deployed on Vercel.
 
 ## Features
 
-### Analytics Dashboard
-- **Throughput Analysis**: Bar chart showing PRs merged vs Issues closed over time
-- **Cycle Time Metrics**: Line graph displaying average time from PR creation to merge
-- **Contributor Leaderboard**: Horizontal bar chart ranking top contributors by activity
-- **Label Distribution**: Donut chart showing frequency of labels (bug, feature, debt, etc.)
-- **Issue Aging**: Histogram showing issues by age buckets (0-7 days, 7-30 days, 30+ days)
-- **Activity Timeline**: Line chart showing repository activity trends over time
+### Multi-Page Layout
+- **Top navigation bar** — Repo selector, date range picker, and nav: **Overview** | **PRs** | **Issues** | **Contributors** | **Compare**
+- **Executive Overview (`/`)** — KPI cards with sparklines, activity timeline, review breakdown, throughput, and health signals (bus factor, backlog aging)
+- **PR Analytics (`/prs`)** — Merge rate, review breakdown, cycle time trend, PR size distribution, size vs merge time
+- **Issue Analytics (`/issues`)** — Open by label, backlog aging, bug/feature ratio, reopen rate, issue throughput
+- **Contributors (`/contributors`)** — Sortable table: PRs merged/reviewed, response times, wait times, LOC added/deleted; row click → profile
+- **Contributor profile (`/contributors/[username]`)** — Author and reviewer stats, PR size and merge time trends, review activity
+- **Compare (`/compare`)** — KPI comparison across date ranges with sparklines and context-aware color coding
 
-### Key Performance Indicators
-- Total/Open/Closed Issues count
-- Total/Open/Merged Pull Requests count
-- Average Issue Resolution Time
-- Average PR Merge Time
-- Real-time KPI cards with clean visual design
+### Key Performance Indicators (30+)
+- **PR**: Merge rate, comment rate, pick-up time, avg PR size, open-to-approval, open-to-merge, review breakdown (approved/changes requested/commented)
+- **Quality**: Release rate, defect rate (% merged PRs linked to bugs)
+- **Issues**: Bug/feature ratio, new/closed per week, avg time to close, reopen rate, backlog aging buckets
+- **Counts**: Total/open/closed issues and PRs, avg issue resolution time, avg PR merge time
+- **Contributor**: Per-user author/reviewer metrics, rework rate, bus factor alerts
 
 ### Security & Authentication
 - **Secure Authentication**: GitHub Personal Access Token (PAT) support
@@ -33,18 +34,16 @@ A comprehensive Next.js-based dashboard for analyzing GitHub repository activity
 - **Error Handling**: Comprehensive error messages and recovery suggestions
 
 ### Performance
-- **Serverless Functions**: Fast, scalable API endpoints on Vercel
-- **Client-Side Caching**: Efficient data storage and reuse
-- **Optimized Queries**: Minimized API calls with intelligent caching
-- **Background Processing**: Non-blocking data processing
+- **Next.js API routes**: Fetch issues, PRs, reviews, commits, and releases with rate-limit handling
+- **Versioned cache**: Server file cache + optional client cache; raw data cached, KPIs computed on read
+- **Rate limiter**: Parses GitHub rate-limit headers, throttles and backoff on 403/429
 
 ## Tech Stack
 
-- **Next.js**: React framework for the frontend
+- **Next.js**: React framework and API routes
 - **TypeScript**: Type-safe development
 - **Tailwind CSS**: Utility-first CSS framework
 - **Recharts**: React charting library
-- **TypeScript**: Type-safe development throughout
 
 ## Prerequisites
 
@@ -161,84 +160,81 @@ GitHub API has rate limits that affect usage:
 2. **The application will open in your default web browser** at `http://localhost:3000`
 
 3. **Configure and fetch data:**
-   - Enter your repository in the format `owner/repo` in the sidebar
-   - Select the date range (defaults to last 30 days)
+   - Enter your repository in the format `owner/repo` in the top bar (repo selector)
+   - Select the date range (compact picker: presets or custom)
    - Click "Fetch Repository Data"
 
 4. **Explore the dashboard:**
-   - View KPIs at the top
-   - Analyze label frequencies
-   - Check contributor activity
-   - Review activity timeline
-   - Examine PR-Issue linkages
-   - Browse detailed issue and PR tables
+   - **Overview**: KPIs with sparklines, activity timeline, review breakdown, health signals
+   - **PRs**: Merge rate, review breakdown, cycle time, size distribution
+   - **Issues**: Open by label, backlog aging, bug/feature ratio, reopen rate
+   - **Contributors**: Sortable table; click a row for individual profile
+   - **Compare**: Compare KPIs across two date ranges
 
 ## Project Structure
 
 ```
 pm-dashboard/
-├── app/                   # Next.js app directory
-│   ├── components/       # React components
-│   │   ├── charts/       # Chart components (Recharts)
-│   │   ├── ConfigSidebar.tsx
-│   │   ├── KPICards.tsx
-│   │   └── DataTables.tsx
-│   ├── lib/              # Utilities
-│   │   └── api.ts        # API client
-│   ├── layout.tsx        # Root layout
-│   ├── page.tsx          # Main dashboard page
-│   └── globals.css       # Global styles
 ├── app/
-│   ├── api/              # Next.js API routes
-│   │   └── fetch-data/   # Main API endpoint
-│   ├── components/       # React components
-│   ├── lib/              # Utilities
-│   └── ...
-├── types/                 # TypeScript type definitions
-│   └── index.ts
-├── package.json          # Node.js dependencies
-├── vercel.json           # Vercel configuration
-└── README.md            # This file
+│   ├── api/fetch-data/   # Fetches issues, PRs, reviews, commits, releases
+│   ├── components/       # TopNavBar, DateRangePicker, KPICards, KPICard, DataTables
+│   │   └── charts/       # Timeline, Throughput, Labels, ReviewBreakdown, BacklogAging,
+│   │                     # ContributorTable, BusFactor, PR size/merge charts, etc.
+│   ├── context/          # DashboardContext (repo, date range, data, fetchData)
+│   ├── lib/              # metrics.ts, dataCache.ts, rateLimiter.ts, formatters, api
+│   ├── layout.tsx        # Root layout with DashboardContext + TopNavBar
+│   ├── page.tsx          # Executive overview (/)
+│   ├── prs/page.tsx      # PR analytics
+│   ├── issues/page.tsx   # Issue analytics
+│   ├── contributors/     # Table + [username] profile
+│   └── compare/page.tsx  # KPI comparison
+├── types/index.ts        # Raw and computed types (PR, PRReview, Release, ComputedKPIs, etc.)
+├── SPEC.md               # Full project specification (architecture, metrics, schema)
+├── package.json
+├── vercel.json
+└── README.md
 ```
 
 ## Module Descriptions
 
-### `github_api.py`
-- Handles authentication with GitHub API
-- Fetches issues and pull requests within date ranges
-- Extracts relevant data from GitHub objects
+### `app/context/DashboardContext.tsx`
+- Shared state: repository, date range, raw and processed data, loading, error
+- `fetchData(forceRefresh?)` used by all pages; single source of truth for config and data
 
-### `data_processor.py`
-- Processes raw GitHub data into pandas DataFrames
-- Calculates KPIs and metrics
-- Extracts label frequencies
-- Creates contributor leaderboards
-- Identifies PR-Issue linkages
-- Generates timeline data
+### `app/lib/metrics.ts`
+- All 30+ metric formulas: merge rate, pick-up time, defect rate, contributor metrics, etc.
+- Computed from raw cached data (cache raw, compute on read)
 
-### `app/page.tsx`
-- Main Next.js dashboard page
-- Handles user input and state management
-- Displays KPIs, charts, and tables
-- Manages application state with React hooks
+### `app/api/fetch-data/route.ts`
+- Fetches issues, PRs, PR reviews, commit counts, releases (and optional issue events)
+- Uses `app/lib/rateLimiter.ts` for throttling and backoff
+
+### `app/components/TopNavBar.tsx`
+- Navigation links, compact date range picker, repo selector
+- Replaces the previous sidebar configuration
 
 ### `app/components/charts/`
-- React components using Recharts
-- Creates interactive charts for all visualizations
-- Responsive and accessible chart components
+- Recharts-based charts: Timeline, Throughput, Labels, ReviewBreakdown, BacklogAging, ContributorTable, BusFactor, PR size and merge time charts
+
+For full architecture, data schema, and metric definitions, see **[SPEC.md](./SPEC.md)**.
 
 ## Metrics Explained
 
 ### Key Performance Indicators
 
-- **Total Issues**: All issues created in the selected date range
-- **Open Issues**: Issues currently open
-- **Closed Issues**: Issues that have been closed
-- **Total PRs**: All pull requests created in the selected date range
-- **Open PRs**: Pull requests currently open
-- **Merged PRs**: Pull requests that have been merged
-- **Avg Issue Resolution Time**: Average time (in days) from issue creation to closure
-- **Avg PR Merge Time**: Average time (in days) from PR creation to merge
+- **Counts**: Total/open/closed issues; total/open/merged PRs
+- **Avg Issue Resolution Time**: Average time (days) from issue creation to closure
+- **Avg PR Merge Time**: Average time (days) from PR creation to merge
+- **Merge Rate**: Merged PRs in range ÷ weekdays in range
+- **Pick-up Time**: Median time to first human review (excludes bots)
+- **Open-to-Approval**: Median time from PR open to first approval
+- **Open-to-Merge**: Median time from PR open to merge
+- **Avg PR Size**: Mean additions + deletions (PRs ≤ 2500 LOC)
+- **Review Breakdown**: Counts of reviews by state (approved / changes requested / commented)
+- **Release Rate**: Non-draft releases per week; **Defect Rate**: % merged PRs linked to bug issues
+- **Issue metrics**: Bug/feature ratio, new/closed per week, reopen rate, backlog aging buckets
+
+See **[SPEC.md](./SPEC.md)** for full metric definitions and edge cases.
 
 ### PR-Issue Linkage
 

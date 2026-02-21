@@ -286,11 +286,20 @@ async function fetchReleases(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
-    const repository = body?.repository ?? '';
+    const repository =
+      typeof body?.repository === 'string' ? body.repository.trim() : '';
     const startDate = body?.startDate;
     const endDate = body?.endDate;
 
-    if (!repository || typeof repository !== 'string' || !repository.includes('/')) {
+    if (!repository || !repository.includes('/')) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid repository format. Use "owner/repo"' },
+        { status: 400 },
+      );
+    }
+
+    const [owner, repo] = repository.split('/', 2).map((s) => (s ?? '').trim());
+    if (!owner || !repo) {
       return NextResponse.json(
         { success: false, error: 'Invalid repository format. Use "owner/repo"' },
         { status: 400 },
@@ -309,14 +318,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'GITHUB_TOKEN not configured' },
         { status: 500 },
-      );
-    }
-
-    const [owner, repo] = repository.split('/', 2);
-    if (!owner || !repo) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid repository format' },
-        { status: 400 },
       );
     }
 
