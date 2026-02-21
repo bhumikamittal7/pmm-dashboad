@@ -1,13 +1,15 @@
 import fs from 'fs';
 import path from 'path';
-import { Issue, PullRequest } from '@/types';
+import { Issue, PullRequest, Release } from '@/types';
 
 const CACHE_DIR = path.join(process.cwd(), 'data');
 const CACHE_FILE = path.join(CACHE_DIR, 'github-data-cache.json');
 
 interface CachedData {
+  version: 2;
   issues: Issue[];
   prs: PullRequest[];
+  releases: Release[];
   lastUpdated: string;
   dateRange: {
     start: string;
@@ -24,23 +26,41 @@ export function ensureCacheDir(): void {
 export function readCachedData(): CachedData | null {
   try {
     ensureCacheDir();
-    if (!fs.existsSync(CACHE_FILE)) {
-      return null;
-    }
+    if (!fs.existsSync(CACHE_FILE)) return null;
     const fileContent = fs.readFileSync(CACHE_FILE, 'utf-8');
-    return JSON.parse(fileContent) as CachedData;
+    const parsed = JSON.parse(fileContent);
+    // Handle old cache format (version 1 or no version)
+    if (!parsed.version || parsed.version < 2) {
+      return {
+        version: 2,
+        issues: parsed.issues || [],
+        prs: parsed.prs || [],
+        releases: parsed.releases || [],
+        lastUpdated: parsed.lastUpdated || new Date().toISOString(),
+        dateRange: parsed.dateRange || { start: new Date().toISOString(), end: new Date().toISOString() },
+      };
+    }
+    return parsed as CachedData;
   } catch (error) {
     console.error('Error reading cached data:', error);
     return null;
   }
 }
 
-export function writeCachedData(issues: Issue[], prs: PullRequest[], startDate: Date, endDate: Date): void {
+export function writeCachedData(
+  issues: Issue[],
+  prs: PullRequest[],
+  releases: Release[],
+  startDate: Date,
+  endDate: Date,
+): void {
   try {
     ensureCacheDir();
     const cachedData: CachedData = {
+      version: 2,
       issues,
       prs,
+      releases,
       lastUpdated: new Date().toISOString(),
       dateRange: {
         start: startDate.toISOString(),
@@ -53,35 +73,30 @@ export function writeCachedData(issues: Issue[], prs: PullRequest[], startDate: 
   }
 }
 
-export function getCachedDataForRange(requestedStart: Date, requestedEnd: Date): {
-  issues: Issue[];
-  prs: PullRequest[];
-} | null {
+export function getCachedDataForRange(
+  requestedStart: Date,
+  requestedEnd: Date,
+): { issues: Issue[]; prs: PullRequest[]; releases: Release[] } | null {
   const cached = readCachedData();
-  if (!cached) {
-    return null;
-  }
+  if (!cached) return null;
 
   const cacheStart = new Date(cached.dateRange.start);
   const cacheEnd = new Date(cached.dateRange.end);
 
-  // Check if cached data covers the requested range
   if (cacheStart <= requestedStart && cacheEnd >= requestedEnd) {
-    // Filter cached data to only include items in the requested range
     const filteredIssues = cached.issues.filter(issue => {
-      const issueDate = new Date(issue.created_at);
-      return issueDate >= requestedStart && issueDate <= requestedEnd;
+      const d = new Date(issue.created_at);
+      return d >= requestedStart && d <= requestedEnd;
     });
-
     const filteredPRs = cached.prs.filter(pr => {
-      const prDate = new Date(pr.created_at);
-      return prDate >= requestedStart && prDate <= requestedEnd;
+      const d = new Date(pr.created_at);
+      return d >= requestedStart && d <= requestedEnd;
     });
-
-    return {
-      issues: filteredIssues,
-      prs: filteredPRs,
-    };
+    const filteredReleases = (cached.releases || []).filter(r => {
+      const d = new Date(r.published_at);
+      return d >= requestedStart && d <= requestedEnd;
+    });
+    return { issues: filteredIssues, prs: filteredPRs, releases: filteredReleases };
   }
 
   return null;
@@ -90,23 +105,26 @@ export function getCachedDataForRange(requestedStart: Date, requestedEnd: Date):
 export function mergeCachedData(
   cachedIssues: Issue[],
   cachedPRs: PullRequest[],
+  cachedReleases: Release[],
   newIssues: Issue[],
-  newPRs: PullRequest[]
-): { issues: Issue[]; prs: PullRequest[] } {
-  // Create maps to avoid duplicates
+  newPRs: PullRequest[],
+  newReleases: Release[],
+): { issues: Issue[]; prs: PullRequest[]; releases: Release[] } {
   const issueMap = new Map<number, Issue>();
   const prMap = new Map<number, PullRequest>();
+  const releaseMap = new Map<string, Release>();
 
-  // Add cached data
-  cachedIssues.forEach(issue => issueMap.set(issue.number, issue));
-  cachedPRs.forEach(pr => prMap.set(pr.number, pr));
+  cachedIssues.forEach(i => issueMap.set(i.number, i));
+  cachedPRs.forEach(p => prMap.set(p.number, p));
+  (cachedReleases || []).forEach(r => releaseMap.set(r.tag_name, r));
 
-  // Add/update with new data
-  newIssues.forEach(issue => issueMap.set(issue.number, issue));
-  newPRs.forEach(pr => prMap.set(pr.number, pr));
+  newIssues.forEach(i => issueMap.set(i.number, i));
+  newPRs.forEach(p => prMap.set(p.number, p));
+  (newReleases || []).forEach(r => releaseMap.set(r.tag_name, r));
 
   return {
     issues: Array.from(issueMap.values()),
     prs: Array.from(prMap.values()),
+    releases: Array.from(releaseMap.values()),
   };
 }

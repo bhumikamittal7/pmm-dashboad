@@ -1,7 +1,7 @@
-import { KPIs } from '@/types';
+import { ComputedKPIs } from '@/types';
 
 interface KPICardsProps {
-  kpis: KPIs;
+  kpis: ComputedKPIs;
 }
 
 export default function KPICards({ kpis }: KPICardsProps) {

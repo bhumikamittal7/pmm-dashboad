@@ -1,6 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Issue, PullRequest, KPIs, LabelData, ContributorData, TimelineData, IssueAgingData, PRIssueLinkage, PRSizeMergeTimeData, MergeTimeByUser } from '@/types';
+import { Issue, PullRequest, PRReview, Release } from '@/types';
 import { getCachedDataForRange, writeCachedData, mergeCachedData, readCachedData } from '@/app/lib/dataCache';
+import { throttledFetch } from '@/app/lib/rateLimiter';
+import { isBot } from '@/app/lib/formatters';
+import {
+  computeKPIs,
+  computeContributorMetrics,
+  computeLabels,
+  computeContributorLeaderboard,
+  computeTimeline,
+  computeThroughput,
+  computeCycleTime,
+  computeIssueAging,
+  computePRIssueLinkage,
+  computePRSizeMergeTime,
+  computeMergeTimeByAuthor,
+  computeMergeTimeByReviewer,
+  computeReviewBreakdown,
+  computePRSizeDistribution,
+  computeBacklogAging,
+} from '@/app/lib/metrics';
 
 interface GitHubIssue {
   number: number;
@@ -8,11 +27,12 @@ interface GitHubIssue {
   state: 'open' | 'closed';
   created_at: string;
   closed_at: string | null;
-  user: { login: string } | null;
+  user: { login: string; avatar_url?: string } | null;
   labels: Array<{ name: string }>;
   comments: number;
   pull_request?: { url: string };
   body?: string | null;
+  milestone?: { title: string } | null;
 }
 
 interface GitHubPR extends GitHubIssue {
@@ -23,6 +43,27 @@ interface GitHubPR extends GitHubIssue {
   deletions?: number;
   changed_files?: number;
   requested_reviewers?: Array<{ login: string }>;
+  draft?: boolean;
+}
+
+interface GitHubReview {
+  user: { login: string } | null;
+  state: string;
+  submitted_at: string;
+  body: string;
+}
+
+interface GitHubRelease {
+  tag_name: string;
+  name: string;
+  published_at: string;
+  author: { login: string } | null;
+  prerelease: boolean;
+  draft: boolean;
+}
+
+interface GitHubEvent {
+  event: string;
 }
 
 async function fetchGitHubData(
@@ -30,8 +71,8 @@ async function fetchGitHubData(
   owner: string,
   repo: string,
   startDate: Date,
-  endDate: Date
-): Promise<{ issues: Issue[]; prs: PullRequest[] }> {
+  endDate: Date,
+): Promise<{ issues: Issue[]; prs: PullRequest[]; releases: Release[] }> {
   const issues: Issue[] = [];
   const prs: PullRequest[] = [];
 
@@ -40,71 +81,29 @@ async function fetchGitHubData(
     Accept: 'application/vnd.github.v3+json',
   };
 
+  // Fetch issues and PRs
   let page = 1;
   let hasMore = true;
-
   while (hasMore) {
-    const response = await fetch(
+    const response = await throttledFetch(
       `https://api.github.com/repos/${owner}/${repo}/issues?state=all&since=${startDate.toISOString()}&page=${page}&per_page=100`,
-      { 
-        headers,
-        next: { revalidate: 3600 } // Cache for 1 hour on server
-      }
+      { headers },
     );
-
     if (!response.ok) {
       throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
     }
-
     const data: GitHubIssue[] = await response.json();
-    
-    if (data.length === 0) {
-      hasMore = false;
-      break;
-    }
+    if (data.length === 0) break;
 
     for (const item of data) {
       const createdAt = new Date(item.created_at);
-      
-      if (createdAt < startDate || createdAt > endDate) {
-        continue;
-      }
+      if (createdAt < startDate || createdAt > endDate) continue;
 
       if (item.pull_request) {
-        // Fetch PR details
-        const prResponse = await fetch(
-          `https://api.github.com/repos/${owner}/${repo}/pulls/${item.number}`,
-          { 
-            headers,
-            next: { revalidate: 3600 } // Cache for 1 hour on server
-          }
-        );
-        
-        if (prResponse.ok) {
-          const prData: GitHubPR = await prResponse.json();
-          const reviewers =
-            prData.requested_reviewers?.map(r => r.login).filter(Boolean) || [];
-          prs.push({
-            number: prData.number,
-            title: prData.title,
-            state: prData.state,
-            created_at: prData.created_at,
-            closed_at: prData.closed_at,
-            merged_at: prData.merged_at,
-            user: prData.user?.login || 'Unknown',
-            labels: prData.labels.map(l => l.name),
-            comments: prData.comments,
-            review_comments: prData.review_comments,
-            body: prData.body || '',
-            is_pr: true,
-            merged: prData.merged,
-            additions: prData.additions || 0,
-            deletions: prData.deletions || 0,
-            changed_files: prData.changed_files || 0,
-            reviewers,
-          });
-        }
+        const pr = await fetchPRDetails(token, owner, repo, item.number, headers);
+        if (pr) prs.push(pr);
       } else {
+        const reopened = await checkIfReopened(token, owner, repo, item.number, headers);
         issues.push({
           number: item.number,
           title: item.title,
@@ -115,337 +114,193 @@ async function fetchGitHubData(
           labels: item.labels.map(l => l.name),
           comments: item.comments,
           is_pr: false,
+          reopened,
+          milestone: item.milestone?.title || null,
         });
       }
     }
 
     page++;
-    if (data.length < 100) {
-      hasMore = false;
+    if (data.length < 100) hasMore = false;
+  }
+
+  // Fetch releases
+  const releases = await fetchReleases(token, owner, repo, startDate, endDate, headers);
+
+  return { issues, prs, releases };
+}
+
+async function fetchPRDetails(
+  token: string,
+  owner: string,
+  repo: string,
+  prNumber: number,
+  headers: HeadersInit,
+): Promise<PullRequest | null> {
+  const prResponse = await throttledFetch(
+    `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`,
+    { headers },
+  );
+  if (!prResponse.ok) return null;
+  const prData: GitHubPR = await prResponse.json();
+
+  // Fetch reviews
+  const reviewsResponse = await throttledFetch(
+    `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/reviews?per_page=100`,
+    { headers },
+  );
+  let reviews: PRReview[] = [];
+  if (reviewsResponse.ok) {
+    const reviewsData: GitHubReview[] = await reviewsResponse.json();
+    reviews = reviewsData.map(r => ({
+      user: r.user?.login || 'Unknown',
+      state: r.state as PRReview['state'],
+      submitted_at: r.submitted_at,
+      body: r.body || '',
+      is_bot: isBot(r.user?.login || ''),
+    }));
+  }
+
+  // Fetch commit count
+  const commitsResponse = await throttledFetch(
+    `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}/commits?per_page=1`,
+    { headers },
+  );
+  let commits_count = 0;
+  if (commitsResponse.ok) {
+    const linkHeader = commitsResponse.headers.get('link');
+    if (linkHeader) {
+      const match = linkHeader.match(/page=(\d+)>; rel="last"/);
+      commits_count = match ? parseInt(match[1], 10) : 1;
+    } else {
+      const commitsData = await commitsResponse.json();
+      commits_count = Array.isArray(commitsData) ? commitsData.length : 0;
     }
   }
 
-  return { issues, prs };
-}
+  const humanReviews = reviews.filter(r => !r.is_bot);
+  const firstReview = humanReviews.length > 0
+    ? humanReviews.reduce((earliest, r) =>
+        new Date(r.submitted_at) < new Date(earliest.submitted_at) ? r : earliest
+      )
+    : null;
+  const firstApproval = humanReviews
+    .filter(r => r.state === 'APPROVED')
+    .reduce<PRReview | null>((earliest, r) =>
+      !earliest || new Date(r.submitted_at) < new Date(earliest.submitted_at) ? r : earliest
+    , null);
 
-function calculateKPIs(issues: Issue[], prs: PullRequest[]): KPIs {
-  const closedIssues = issues.filter(i => i.state === 'closed' && i.closed_at);
-  const mergedPRs = prs.filter(p => p.merged && p.merged_at);
-
-  let avgIssueResolution = 0;
-  if (closedIssues.length > 0) {
-    const totalDays = closedIssues.reduce((sum, issue) => {
-      const created = new Date(issue.created_at);
-      const closed = new Date(issue.closed_at!);
-      return sum + (closed.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
-    }, 0);
-    avgIssueResolution = totalDays / closedIssues.length;
-  }
-
-  let avgPRMerge = 0;
-  if (mergedPRs.length > 0) {
-    const totalDays = mergedPRs.reduce((sum, pr) => {
-      const created = new Date(pr.created_at);
-      const merged = new Date(pr.merged_at!);
-      return sum + (merged.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
-    }, 0);
-    avgPRMerge = totalDays / mergedPRs.length;
-  }
+  const requestedReviewerLogins = prData.requested_reviewers?.map(r => r.login).filter(Boolean) || [];
+  const reviewerSet = new Set(requestedReviewerLogins);
+  reviews.forEach(r => { if (!r.is_bot) reviewerSet.add(r.user); });
 
   return {
-    total_issues: issues.length,
-    open_issues: issues.filter(i => i.state === 'open').length,
-    closed_issues: closedIssues.length,
-    total_prs: prs.length,
-    open_prs: prs.filter(p => p.state === 'open').length,
-    merged_prs: mergedPRs.length,
-    avg_issue_resolution_days: avgIssueResolution,
-    avg_pr_merge_days: avgPRMerge,
+    number: prData.number,
+    title: prData.title,
+    state: prData.state,
+    created_at: prData.created_at,
+    closed_at: prData.closed_at,
+    merged_at: prData.merged_at,
+    user: prData.user?.login || 'Unknown',
+    avatar_url: prData.user?.avatar_url || '',
+    labels: prData.labels.map(l => l.name),
+    comments: prData.comments,
+    review_comments: prData.review_comments,
+    body: prData.body || '',
+    is_pr: true,
+    merged: prData.merged,
+    additions: prData.additions || 0,
+    deletions: prData.deletions || 0,
+    changed_files: prData.changed_files || 0,
+    requested_reviewers: requestedReviewerLogins,
+    reviewers: Array.from(reviewerSet),
+    draft: prData.draft || false,
+    reviews,
+    commits_count,
+    first_review_at: firstReview?.submitted_at || null,
+    first_approval_at: firstApproval?.submitted_at || null,
   };
 }
 
-function extractLabelsFrequency(issues: Issue[], prs: PullRequest[]): LabelData[] {
-  const labelCounts = new Map<string, number>();
-  const ignoredLabels = new Set([
-    'ON_STAGING',
-    'Deployed on PuzzleMe',
-    'Deployed on Subs',
-    'Deployed on Enterprise',
-  ]);
-
-  // Only use issues for label distribution
-  issues.forEach(item => {
-    item.labels.forEach(label => {
-      if (ignoredLabels.has(label)) {
-        return;
-      }
-      labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
-    });
-  });
-
-  return Array.from(labelCounts.entries())
-    .map(([Label, Count]) => ({ Label, Count }))
-    .sort((a, b) => b.Count - a.Count);
-}
-
-function createContributorLeaderboard(issues: Issue[], prs: PullRequest[]): ContributorData[] {
-  const contributorData = new Map<string, { Issues: number; PRs: number }>();
-
-  issues.forEach(issue => {
-    const data = contributorData.get(issue.user) || { Issues: 0, PRs: 0 };
-    data.Issues++;
-    contributorData.set(issue.user, data);
-  });
-
-  prs.forEach(pr => {
-    const data = contributorData.get(pr.user) || { Issues: 0, PRs: 0 };
-    data.PRs++;
-    contributorData.set(pr.user, data);
-  });
-
-  return Array.from(contributorData.entries())
-    .map(([Contributor, { Issues, PRs }]) => ({
-      Contributor,
-      Issues,
-      PRs,
-      Total: Issues + PRs,
-    }))
-    .sort((a, b) => b.Total - a.Total);
-}
-
-function createTimelineData(prs: PullRequest[], startDate: Date, endDate: Date): TimelineData[] {
-  // Always use weeks for timeline
-  const period = 'week';
-  
-  const periodMap = new Map<string, number>();
-
-  // Only count merged PRs
-  prs
-    .filter(pr => pr.merged && pr.merged_at)
-    .forEach(pr => {
-      const mergeDate = new Date(pr.merged_at!);
-      const key = formatPeriod(mergeDate, period);
-      periodMap.set(key, (periodMap.get(key) || 0) + 1);
-    });
-
-  return Array.from(periodMap.entries())
-    .map(([Date, count]) => ({
-      Date,
-      Issues: 0,
-      PRs: count,
-      Total: count,
-    }))
-    .sort((a, b) => a.Date.localeCompare(b.Date));
-}
-
-function formatPeriod(date: Date, period: 'day' | 'week' | 'month'): string {
-  if (period === 'day') {
-    return date.toISOString().split('T')[0];
-  } else if (period === 'week') {
-    const weekStart = new Date(date);
-    weekStart.setDate(date.getDate() - date.getDay());
-    return weekStart.toISOString().split('T')[0];
-  } else {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+async function checkIfReopened(
+  token: string,
+  owner: string,
+  repo: string,
+  issueNumber: number,
+  headers: HeadersInit,
+): Promise<boolean> {
+  try {
+    const response = await throttledFetch(
+      `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/events?per_page=100`,
+      { headers },
+    );
+    if (!response.ok) return false;
+    const events: GitHubEvent[] = await response.json();
+    return events.some(e => e.event === 'reopened');
+  } catch {
+    return false;
   }
 }
 
-function createIssueAgingData(issues: Issue[], prs: PullRequest[]): IssueAgingData[] {
-  // Create a map of issue numbers to PR merge dates
-  const issueToPRMergeDate = new Map<number, Date>();
-  
-  prs.forEach(pr => {
-    if (!pr.merged || !pr.merged_at) return;
-    
-    // Extract issue numbers from PR body
-    const patterns = [
-      /#(\d+)/g,
-      /closes?\s+#(\d+)/gi,
-      /fixes?\s+#(\d+)/gi,
-      /resolves?\s+#(\d+)/gi,
-      /related\s+to\s+#(\d+)/gi,
-    ];
-    
-    if (!pr.body) return;
-    
-    patterns.forEach(pattern => {
-      const matches = pr.body.matchAll(pattern);
-      for (const match of matches) {
-        const issueNum = parseInt(match[1]);
-        if (!isNaN(issueNum)) {
-          const mergeDate = new Date(pr.merged_at!);
-          // Keep the earliest merge date if multiple PRs reference the same issue
-          const existing = issueToPRMergeDate.get(issueNum);
-          if (!existing || mergeDate < existing) {
-            issueToPRMergeDate.set(issueNum, mergeDate);
-          }
-        }
+async function fetchReleases(
+  token: string,
+  owner: string,
+  repo: string,
+  startDate: Date,
+  endDate: Date,
+  headers: HeadersInit,
+): Promise<Release[]> {
+  const releases: Release[] = [];
+  let page = 1;
+  let hasMore = true;
+  while (hasMore) {
+    const response = await throttledFetch(
+      `https://api.github.com/repos/${owner}/${repo}/releases?page=${page}&per_page=100`,
+      { headers },
+    );
+    if (!response.ok) break;
+    const data: GitHubRelease[] = await response.json();
+    if (data.length === 0) break;
+
+    for (const r of data) {
+      if (!r.published_at) continue;
+      const publishedAt = new Date(r.published_at);
+      if (publishedAt < startDate) { hasMore = false; break; }
+      if (publishedAt <= endDate) {
+        releases.push({
+          tag_name: r.tag_name,
+          name: r.name || r.tag_name,
+          published_at: r.published_at,
+          author: r.author?.login || 'Unknown',
+          prerelease: r.prerelease,
+          draft: r.draft,
+        });
       }
-    });
-  });
-
-  const now = new Date();
-  const issueAgingData: IssueAgingData[] = [];
-
-  // Create individual issue data points
-  issues.forEach(issue => {
-    const prMergeDate = issueToPRMergeDate.get(issue.number);
-    if (!prMergeDate) return; // Skip issues without linked PRs
-    
-    const ageDays = (now.getTime() - prMergeDate.getTime()) / (1000 * 60 * 60 * 24);
-    
-    issueAgingData.push({
-      Issue_Number: issue.number,
-      Issue_Title: issue.title,
-      PR_Merge_Date: prMergeDate.toISOString(),
-      Age_Days: Math.round(ageDays * 10) / 10, // Round to 1 decimal place
-    });
-  });
-
-  // Sort by age days (oldest first)
-  return issueAgingData.sort((a, b) => b.Age_Days - a.Age_Days);
-}
-
-function extractPRIssueLinkage(prs: PullRequest[]): PRIssueLinkage[] {
-  const linkages: PRIssueLinkage[] = [];
-  const patterns = [
-    /#(\d+)/g,
-    /closes?\s+#(\d+)/gi,
-    /fixes?\s+#(\d+)/gi,
-    /resolves?\s+#(\d+)/gi,
-    /related\s+to\s+#(\d+)/gi,
-  ];
-
-  prs.forEach(pr => {
-    if (!pr.body) return;
-
-    const linkedIssues = new Set<string>();
-    
-    patterns.forEach(pattern => {
-      const matches = pr.body.matchAll(pattern);
-      for (const match of matches) {
-        linkedIssues.add(match[1]);
-      }
-    });
-
-    if (linkedIssues.size > 0) {
-      linkages.push({
-        'PR Number': pr.number,
-        'PR Title': pr.title,
-        'Linked Issues': Array.from(linkedIssues).sort((a, b) => parseInt(a) - parseInt(b)).join(', '),
-      });
     }
-  });
-
-  return linkages;
-}
-
-function createPRSizeMergeTimeData(prs: PullRequest[]): PRSizeMergeTimeData[] {
-  const data: PRSizeMergeTimeData[] = [];
-
-  prs
-    .filter(
-      pr =>
-        pr.merged &&
-        pr.merged_at &&
-        typeof pr.additions === 'number' &&
-        typeof pr.deletions === 'number'
-    )
-    .forEach(pr => {
-      const created = new Date(pr.created_at);
-      const merged = new Date(pr.merged_at!);
-      const mergeTimeDays =
-        (merged.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
-      const size = (pr.additions || 0) + (pr.deletions || 0);
-
-      data.push({
-        PR_Number: pr.number,
-        PR_Title: pr.title,
-        Size: size,
-        Merge_Time_Days: mergeTimeDays,
-      });
-    });
-
-  return data.sort((a, b) => a.Size - b.Size);
-}
-
-function createMergeTimeByAuthor(prs: PullRequest[]): MergeTimeByUser[] {
-  const stats = new Map<string, { count: number; totalDays: number }>();
-
-  prs
-    .filter(pr => pr.merged && pr.merged_at)
-    .forEach(pr => {
-      const created = new Date(pr.created_at);
-      const merged = new Date(pr.merged_at!);
-      const mergeTimeDays =
-        (merged.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
-      const user = pr.user || 'Unknown';
-
-      const current = stats.get(user) || { count: 0, totalDays: 0 };
-      current.count += 1;
-      current.totalDays += mergeTimeDays;
-      stats.set(user, current);
-    });
-
-  return Array.from(stats.entries())
-    .map(([user, { count, totalDays }]) => ({
-      user,
-      count,
-      avg_merge_days: count > 0 ? totalDays / count : 0,
-    }))
-    .sort((a, b) => b.count - a.count);
-}
-
-function createMergeTimeByReviewer(prs: PullRequest[]): MergeTimeByUser[] {
-  const stats = new Map<string, { count: number; totalDays: number }>();
-
-  prs
-    .filter(
-      pr =>
-        pr.merged &&
-        pr.merged_at &&
-        Array.isArray(pr.reviewers) &&
-        pr.reviewers.length > 0
-    )
-    .forEach(pr => {
-      const created = new Date(pr.created_at);
-      const merged = new Date(pr.merged_at!);
-      const mergeTimeDays =
-        (merged.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
-
-      pr.reviewers!.forEach(reviewer => {
-        const name = reviewer || 'Unknown';
-        const current = stats.get(name) || { count: 0, totalDays: 0 };
-        current.count += 1;
-        current.totalDays += mergeTimeDays;
-        stats.set(name, current);
-      });
-    });
-
-  return Array.from(stats.entries())
-    .map(([user, { count, totalDays }]) => ({
-      user,
-      count,
-      avg_merge_days: count > 0 ? totalDays / count : 0,
-    }))
-    .sort((a, b) => b.count - a.count);
+    page++;
+    if (data.length < 100) hasMore = false;
+  }
+  return releases;
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { repository, startDate, endDate } = await request.json();
+    const body = await request.json().catch(() => ({}));
+    const repository = body?.repository ?? '';
+    const startDate = body?.startDate;
+    const endDate = body?.endDate;
 
-    if (!repository || !repository.includes('/')) {
+    if (!repository || typeof repository !== 'string' || !repository.includes('/')) {
       return NextResponse.json(
         { success: false, error: 'Invalid repository format. Use "owner/repo"' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!startDate || !endDate) {
       return NextResponse.json(
         { success: false, error: 'Start date and end date are required' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -453,7 +308,7 @@ export async function POST(request: NextRequest) {
     if (!token) {
       return NextResponse.json(
         { success: false, error: 'GITHUB_TOKEN not configured' },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -461,108 +316,122 @@ export async function POST(request: NextRequest) {
     if (!owner || !repo) {
       return NextResponse.json(
         { success: false, error: 'Invalid repository format' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const start = new Date(startDate);
     const end = new Date(endDate);
 
-    // Check if we have cached data that covers this range
-    const cachedData = getCachedDataForRange(start, end);
     let issues: Issue[];
     let prs: PullRequest[];
+    let releases: Release[];
 
+    const cachedData = getCachedDataForRange(start, end);
     if (cachedData) {
-      // Use cached data
       issues = cachedData.issues;
       prs = cachedData.prs;
+      releases = cachedData.releases;
       console.log(`Using cached data for range ${startDate} to ${endDate}`);
     } else {
-      // Fetch from API
       const fetched = await fetchGitHubData(token, owner, repo, start, end);
       issues = fetched.issues;
       prs = fetched.prs;
+      releases = fetched.releases;
 
-      // Try to merge with existing cache if it exists
       const existingCache = readCachedData();
       if (existingCache) {
         const merged = mergeCachedData(
           existingCache.issues,
           existingCache.prs,
+          existingCache.releases,
           issues,
-          prs
+          prs,
+          releases,
         );
         issues = merged.issues;
         prs = merged.prs;
+        releases = merged.releases;
       }
 
-      // Update cache with merged data
-      // Use the broader date range (cache range or requested range, whichever is wider)
-      const cacheStart = existingCache 
+      const cacheStart = existingCache
         ? new Date(Math.min(new Date(existingCache.dateRange.start).getTime(), start.getTime()))
         : start;
       const cacheEnd = existingCache
         ? new Date(Math.max(new Date(existingCache.dateRange.end).getTime(), end.getTime()))
         : end;
-      
-      writeCachedData(issues, prs, cacheStart, cacheEnd);
+
+      writeCachedData(issues, prs, releases, cacheStart, cacheEnd);
       console.log(`Fetched and cached data for range ${startDate} to ${endDate}`);
     }
 
-    const kpis = calculateKPIs(issues, prs);
-    const labels = extractLabelsFrequency(issues, prs);
-    const contributors = createContributorLeaderboard(issues, prs);
-    const timeline = createTimelineData(prs, start, end);
-    const issueAging = createIssueAgingData(issues, prs);
-    const prIssueLinkage = extractPRIssueLinkage(prs);
-    const prSizeMergeTime = createPRSizeMergeTimeData(prs);
-    const mergeTimeByAuthor = createMergeTimeByAuthor(prs);
-    const mergeTimeByReviewer = createMergeTimeByReviewer(prs);
+    // Compute all metrics from raw data
+    const kpis = computeKPIs(issues, prs, releases, start, end);
+    const labels = computeLabels(issues);
+    const contributors = computeContributorLeaderboard(issues, prs);
+    const contributorMetrics = computeContributorMetrics(prs, issues);
+    const timeline = computeTimeline(prs);
+    const throughput = computeThroughput(issues, prs);
+    const cycleTime = computeCycleTime(prs);
+    const issueAging = computeIssueAging(issues, prs);
+    const prIssueLinkage = computePRIssueLinkage(prs);
+    const prSizeMergeTime = computePRSizeMergeTime(prs);
+    const mergeTimeByAuthor = computeMergeTimeByAuthor(prs);
+    const mergeTimeByReviewer = computeMergeTimeByReviewer(prs);
+    const reviewBreakdown = computeReviewBreakdown(prs);
+    const prSizeDistribution = computePRSizeDistribution(prs);
+    const backlogAging = computeBacklogAging(issues);
 
     return NextResponse.json({
       success: true,
       data: {
         issues,
         prs,
+        releases,
         kpis,
         labels,
         contributors,
+        contributorMetrics,
         timeline,
+        throughput,
+        cycleTime,
         issueAging,
         prIssueLinkage,
         prSizeMergeTime,
         mergeTimeByAuthor,
         mergeTimeByReviewer,
+        reviewBreakdown,
+        prSizeDistribution,
+        backlogAging,
       },
     });
-  } catch (error: any) {
-    const errorMsg = error.message || 'Unknown error';
-    
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+
     if (errorMsg.includes('404') || errorMsg.includes('Not Found')) {
       return NextResponse.json(
         { success: false, error: 'Repository not found' },
-        { status: 404 }
+        { status: 404 },
       );
     }
-    
+
     if (errorMsg.includes('401') || errorMsg.includes('Unauthorized')) {
       return NextResponse.json(
         { success: false, error: 'Authentication failed. Please check your GitHub token.' },
-        { status: 401 }
+        { status: 401 },
       );
     }
-    
+
     if (errorMsg.includes('403') || errorMsg.toLowerCase().includes('rate limit')) {
       return NextResponse.json(
         { success: false, error: 'API rate limit exceeded. Please wait and try again.' },
-        { status: 429 }
+        { status: 429 },
       );
     }
 
     return NextResponse.json(
       { success: false, error: `Error fetching data: ${errorMsg}` },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

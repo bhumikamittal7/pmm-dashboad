@@ -267,11 +267,11 @@ export default function DataTables({ issues, prs, prIssueLinkage }: DataTablesPr
                   {prIssueLinkage.map((linkage, index) => (
                     <tr key={index}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {linkage['PR Number']}
+                        {linkage.pr_number}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">{linkage['PR Title']}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{linkage.pr_title}</td>
                       <td className="px-6 py-4 text-sm text-gray-500">
-                        {linkage['Linked Issues']}
+                        {linkage.linked_issues.join(', ')}
                       </td>
                     </tr>
                   ))}
